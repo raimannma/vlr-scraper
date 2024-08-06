@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use itertools::Itertools;
 use scraper::{ElementRef, Selector};
 
-use crate::models::VlrScraperError;
+use crate::enums::VlrScraperError;
 use crate::utils;
 use crate::utils::get_element_selector_value;
 
@@ -236,9 +236,9 @@ pub struct MatchStream {
 
 #[cfg(test)]
 mod tests {
+    use crate::enums::Region;
     use crate::events::EventType;
     use crate::matchlist::get_matchlist;
-    use crate::models::Region;
 
     use super::*;
 

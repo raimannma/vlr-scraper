@@ -1,9 +1,9 @@
 use itertools::Itertools;
 use log::{info, warn};
-use scraper::error::SelectorErrorKind;
 use scraper::{ElementRef, Html, Selector};
+use scraper::error::SelectorErrorKind;
 
-use crate::models::{Region, VlrScraperError};
+use crate::enums::{Region, VlrScraperError};
 use crate::utils;
 use crate::utils::get_element_selector_value;
 
@@ -182,7 +182,7 @@ impl<'a> TryFrom<ElementRef<'a>> for Event {
 
 #[cfg(test)]
 mod tests {
-    use crate::events::{get_events, EventType};
+    use crate::events::{EventType, get_events};
 
     use super::*;
 

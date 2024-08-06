@@ -1,6 +1,6 @@
 use scraper::{ElementRef, Html, Selector};
 
-use crate::models::VlrScraperError;
+use crate::enums::VlrScraperError;
 
 pub(crate) async fn get_document(
     client: &reqwest::Client,

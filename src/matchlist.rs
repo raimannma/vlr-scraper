@@ -2,7 +2,7 @@ use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use itertools::Itertools;
 use scraper::{CaseSensitivity, ElementRef, Html, Selector};
 
-use crate::models::VlrScraperError;
+use crate::enums::VlrScraperError;
 use crate::utils;
 use crate::utils::get_element_selector_value;
 
@@ -154,8 +154,8 @@ pub struct MatchListItem {
 
 #[cfg(test)]
 mod tests {
+    use crate::enums::Region;
     use crate::events::EventType;
-    use crate::models::Region;
 
     use super::*;
 
