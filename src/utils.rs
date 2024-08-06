@@ -17,7 +17,7 @@ pub(crate) async fn get_document(
         .map_err(VlrScraperError::ReqwestError)
 }
 
-pub(crate) fn get_element_selector_value(element: ElementRef, selector: &Selector) -> String {
+pub(crate) fn get_element_selector_value(element: &ElementRef, selector: &Selector) -> String {
     element
         .select(selector)
         .next()

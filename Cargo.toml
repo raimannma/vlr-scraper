@@ -4,12 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-chrono = "0.4.38"
+chrono = { version = "0.4.38", features = ["serde"] }
 itertools = "0.13.0"
 log = "0.4.22"
 reqwest = "0.12.5"
 scraper = "0.20.0"
+serde = { version = "1.0.204", features = ["derive"] }
 
 [dev-dependencies]
 env_logger = "0.11.5"
-tokio = { version = "1.39.2", features = ["macros"] }
+tokio = { version = "1.39.2", features = ["macros", "rt-multi-thread"] }
+serde_json = "1.0.122"
+kdam = "0.5.2"

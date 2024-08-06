@@ -1,6 +1,7 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use itertools::Itertools;
 use scraper::{CaseSensitivity, ElementRef, Html, Selector};
+use serde::Serialize;
 
 use crate::enums::VlrScraperError;
 use crate::utils;
@@ -40,18 +41,24 @@ fn parse_matches(document: &Html) -> Result<MatchList, VlrScraperError> {
                             MATCH_DATE_FORMAT_ALT,
                         ))
                         .map_err(|_| {
-                            VlrScraperError::ParseError("Failed to parse match date".to_string())
+                            VlrScraperError::ParseError(format!(
+                                "Failed to parse match date: {}",
+                                last_date_raw
+                            ))
                         })?,
                 );
             }
         } else {
-            matches.push(parse_match(element, last_date.unwrap_or_default())?);
+            matches.push(parse_match(&element, last_date)?);
         }
     }
     Ok(matches)
 }
 
-fn parse_match(element: ElementRef, date: NaiveDate) -> Result<MatchListItem, VlrScraperError> {
+fn parse_match(
+    element: &ElementRef,
+    date: Option<NaiveDate>,
+) -> Result<MatchListItem, VlrScraperError> {
     let href = element.value().attr("href");
     let href = href.unwrap_or_default().to_string();
     let (id, slug) = href
@@ -63,14 +70,13 @@ fn parse_match(element: ElementRef, date: NaiveDate) -> Result<MatchListItem, Vl
     let time_selector =
         Selector::parse("div.match-item-time").map_err(VlrScraperError::SelectorError)?;
     let time = get_element_selector_value(element, &time_selector);
-    let time = NaiveTime::parse_from_str(&time, MATCH_TIME_FORMAT)
-        .map_err(|_| VlrScraperError::ParseError("Failed to parse match time".to_string()))?;
-    let date_time = date.and_time(time);
+    let time = NaiveTime::parse_from_str(&time, MATCH_TIME_FORMAT).ok();
+    let date_time = date.and_then(|d| time.map(|t| d.and_time(t)));
 
     let teams_selector = Selector::parse("div.match-item-vs div.match-item-vs-team")
         .map_err(VlrScraperError::SelectorError)?;
     let teams = element.select(&teams_selector).collect_vec();
-    let teams = parse_teams(teams)?;
+    let teams = parse_teams(&teams)?;
 
     let tags_selector =
         Selector::parse("div.match-item-vod div.wf-tag").map_err(VlrScraperError::SelectorError)?;
@@ -108,11 +114,11 @@ fn parse_match(element: ElementRef, date: NaiveDate) -> Result<MatchListItem, Vl
     })
 }
 
-fn parse_teams(teams: Vec<ElementRef>) -> Result<Vec<Team>, VlrScraperError> {
-    teams.into_iter().map(parse_team).collect()
+fn parse_teams(teams: &[ElementRef]) -> Result<Vec<Team>, VlrScraperError> {
+    teams.iter().map(parse_team).collect()
 }
 
-fn parse_team(team: ElementRef) -> Result<Team, VlrScraperError> {
+fn parse_team(team: &ElementRef) -> Result<Team, VlrScraperError> {
     let is_winner = team
         .value()
         .has_class("mod-winner", CaseSensitivity::CaseSensitive);
@@ -133,19 +139,19 @@ fn parse_team(team: ElementRef) -> Result<Team, VlrScraperError> {
     })
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Team {
     pub name: String,
     pub is_winner: bool,
     pub score: Option<u8>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MatchListItem {
     pub id: u32,
     pub slug: String,
     pub href: String,
-    pub date_time: NaiveDateTime,
+    pub date_time: Option<NaiveDateTime>,
     pub teams: Vec<Team>,
     pub tags: Vec<String>,
     pub event_text: String,

@@ -2,6 +2,7 @@ use itertools::Itertools;
 use log::{info, warn};
 use scraper::{ElementRef, Html, Selector};
 use scraper::error::SelectorErrorKind;
+use serde::Serialize;
 
 use crate::enums::{Region, VlrScraperError};
 use crate::utils;
@@ -67,14 +68,14 @@ fn parse_events(event_type: &EventType, document: &Html) -> Result<Vec<Event>, V
     Ok(events)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct EventsData {
     pub events: Vec<Event>,
     pub page: u8,
     pub total_pages: u8,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Event {
     pub status: EventStatus,
     pub region: String,
@@ -87,7 +88,7 @@ pub struct Event {
     pub dates: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum EventStatus {
     Completed,
     Ongoing,
@@ -138,22 +139,22 @@ impl<'a> TryFrom<ElementRef<'a>> for Event {
             .unwrap_or_default();
 
         let title_selector = Selector::parse("div.event-item-inner div.event-item-title")?;
-        let title = get_element_selector_value(element, &title_selector);
+        let title = get_element_selector_value(&element, &title_selector);
 
         let status_selector = Selector::parse(
             "div.event-item-inner div.event-item-desc-item span.event-item-desc-item-status",
         )?;
-        let status = get_element_selector_value(element, &status_selector)
+        let status = get_element_selector_value(&element, &status_selector)
             .to_string()
             .into();
 
         let price_selector =
             Selector::parse("div.event-item-inner div.event-item-desc-item.mod-prize")?;
-        let price = get_element_selector_value(element, &price_selector);
+        let price = get_element_selector_value(&element, &price_selector);
 
         let dates_selector =
             Selector::parse("div.event-item-inner div.event-item-desc-item.mod-dates")?;
-        let dates = get_element_selector_value(element, &dates_selector);
+        let dates = get_element_selector_value(&element, &dates_selector);
 
         let region_selector =
             Selector::parse("div.event-item-inner div.event-item-desc-item.mod-location i")?;
