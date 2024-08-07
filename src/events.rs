@@ -129,13 +129,7 @@ impl<'a> TryFrom<ElementRef<'a>> for Event {
             .select(&icon_selector)
             .next()
             .and_then(|icon| icon.value().attr("src"))
-            .map(|s| {
-                if s.starts_with("//") {
-                    format!("https:{}", s)
-                } else {
-                    s.to_string()
-                }
-            })
+            .map(utils::parse_img_link)
             .unwrap_or_default();
 
         let title_selector = Selector::parse("div.event-item-inner div.event-item-title")?;

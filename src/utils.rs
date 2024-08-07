@@ -28,3 +28,13 @@ pub(crate) fn get_element_selector_value(element: &ElementRef, selector: &Select
         .replace("\t", "")
         .to_string()
 }
+
+pub fn parse_img_link(s: &str) -> String {
+    if s.starts_with("//") {
+        format!("https:{}", s)
+    } else if s.starts_with("/") {
+        format!("https://www.vlr.gg{}", s)
+    } else {
+        s.to_string()
+    }
+}

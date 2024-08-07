@@ -89,13 +89,7 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
         .map(|e| {
             e.value()
                 .attr("src")
-                .map(|s| {
-                    if s.starts_with("//") {
-                        format!("https:{}", s)
-                    } else {
-                        s.to_string()
-                    }
-                })
+                .map(utils::parse_img_link)
                 .unwrap_or_default()
                 .to_string()
         })
@@ -166,13 +160,7 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
         .map(|e| {
             e.value()
                 .attr("src")
-                .map(|s| {
-                    if s.starts_with("//") {
-                        format!("https:{}", s)
-                    } else {
-                        s.to_string()
-                    }
-                })
+                .map(utils::parse_img_link)
                 .unwrap_or_default()
                 .to_string()
         })
@@ -262,11 +250,11 @@ fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame, VlrS
     let players1 = game
         .select(&players1_selector)
         .map(parse_player)
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<_, _>>()?;
     let players2 = game
         .select(&players2_selector)
         .map(parse_player)
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<_, _>>()?;
 
     let team_name_selectors = Selector::parse("div.vm-stats-game-header div.team")
         .map_err(VlrScraperError::SelectorError)?;
