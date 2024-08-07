@@ -245,17 +245,97 @@ fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame, VlrS
             .map_err(VlrScraperError::SelectorError)?;
     let map = get_element_selector_value(game, &map_name_selector);
 
-    let team_name_selectors = Selector::parse("div.vm-stats-game-header div.team")
-        .map_err(VlrScraperError::SelectorError)?;
-    let teams: Vec<MatchGameTeam> = game
-        .select(&team_name_selectors)
-        .map(parse_game_team)
-        .collect();
-
     let rounds_selector =
         Selector::parse("div.vlr-rounds div.vlr-rounds-row-col:not(:first-child,.mod-spacing)")
             .map_err(VlrScraperError::SelectorError)?;
     let rounds = game.select(&rounds_selector).collect_vec();
+    let rounds = parse_rounds(header, rounds)?;
+
+    let players1_selector = Selector::parse(
+        "div.vm-stats-container div div:first-child table tbody tr:has(td.mod-player)",
+    )
+    .map_err(VlrScraperError::SelectorError)?;
+    let players2_selector = Selector::parse(
+        "div.vm-stats-container div div:last-child table tbody tr:has(td.mod-player)",
+    )
+    .map_err(VlrScraperError::SelectorError)?;
+    let players1 = game
+        .select(&players1_selector)
+        .map(parse_player)
+        .collect::<Result<Vec<_>, _>>()?;
+    let players2 = game
+        .select(&players2_selector)
+        .map(parse_player)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let team_name_selectors = Selector::parse("div.vm-stats-game-header div.team")
+        .map_err(VlrScraperError::SelectorError)?;
+    let teams: Vec<MatchGameTeam> = game
+        .select(&team_name_selectors)
+        .zip(vec![players1, players2])
+        .map(|(t, p)| parse_game_team(t, p))
+        .collect();
+    Ok(MatchGame { map, teams, rounds })
+}
+
+fn parse_player(player: ElementRef) -> Result<MatchGamePlayer, VlrScraperError> {
+    let name_column_selector =
+        Selector::parse("td.mod-player").map_err(VlrScraperError::SelectorError)?;
+    let name_column =
+        player
+            .select(&name_column_selector)
+            .next()
+            .ok_or(VlrScraperError::ParseError(
+                "Failed to parse player name".to_string(),
+            ))?;
+    let nation_selector = Selector::parse("i.flag").map_err(VlrScraperError::SelectorError)?;
+    let nation = name_column
+        .select(&nation_selector)
+        .next()
+        .and_then(|e| e.value().attr("title"))
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    let a_tag_selector = Selector::parse("a").map_err(VlrScraperError::SelectorError)?;
+    let a_tag = name_column.select(&a_tag_selector).next();
+    let href = a_tag
+        .and_then(|e| e.value().attr("href"))
+        .unwrap_or_default()
+        .to_string();
+    let (id, slug) = href
+        .strip_prefix("/player/")
+        .unwrap_or_default()
+        .split('/')
+        .map(|s| s.to_string())
+        .collect_tuple()
+        .unwrap_or_default();
+    let name_selector =
+        Selector::parse("a div:first-child").map_err(VlrScraperError::SelectorError)?;
+    let name = get_element_selector_value(&name_column, &name_selector);
+
+    let agent_selector =
+        Selector::parse("td.mod-agents div span img").map_err(VlrScraperError::SelectorError)?;
+    let agent = player
+        .select(&agent_selector)
+        .next()
+        .and_then(|e| e.value().attr("title"))
+        .unwrap_or_default()
+        .to_string();
+
+    Ok(MatchGamePlayer {
+        nation,
+        id: id.parse().unwrap_or_default(),
+        slug,
+        name,
+        agent,
+    })
+}
+
+fn parse_rounds(
+    header: &MatchHeader,
+    rounds: Vec<ElementRef>,
+) -> Result<Vec<MatchGameRound>, VlrScraperError> {
     let round_number_selector =
         Selector::parse("div.rnd-num").map_err(VlrScraperError::SelectorError)?;
     let round_result_selector =
@@ -294,10 +374,10 @@ fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame, VlrS
             }
         })
         .collect_vec();
-    Ok(MatchGame { map, teams, rounds })
+    Ok(rounds)
 }
 
-fn parse_game_team(team: ElementRef) -> MatchGameTeam {
+fn parse_game_team(team: ElementRef, players: Vec<MatchGamePlayer>) -> MatchGameTeam {
     let name_selector = Selector::parse("div.team-name").unwrap();
     let name = get_element_selector_value(&team, &name_selector);
 
@@ -331,6 +411,7 @@ fn parse_game_team(team: ElementRef) -> MatchGameTeam {
         score_t,
         score_ct,
         is_winner,
+        players,
     }
 }
 
@@ -383,6 +464,7 @@ pub struct MatchGameTeam {
     pub score_t: Option<u8>,
     pub score_ct: Option<u8>,
     pub is_winner: bool,
+    pub players: Vec<MatchGamePlayer>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -390,6 +472,15 @@ pub struct MatchGameRound {
     pub round: u8,
     pub winning_team: u32,
     pub winning_site: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchGamePlayer {
+    pub nation: String,
+    pub id: u32,
+    pub name: String,
+    pub slug: String,
+    pub agent: String,
 }
 
 #[cfg(test)]
