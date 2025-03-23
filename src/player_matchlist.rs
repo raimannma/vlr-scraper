@@ -1,5 +1,5 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use itertools::{Itertools, izip};
+use itertools::{izip, Itertools};
 use scraper::{ElementRef, Html, Selector};
 use serde::Serialize;
 

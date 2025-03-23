@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use log::{info, warn};
-use scraper::{ElementRef, Html, Selector};
 use scraper::error::SelectorErrorKind;
+use scraper::{ElementRef, Html, Selector};
 use serde::Serialize;
 
 use crate::enums::{Region, VlrScraperError};
@@ -41,9 +41,9 @@ fn parse_total_pages(event_type: EventType, document: Html) -> Result<u8, VlrScr
         }
     };
     let selector = Selector::parse(total_pages_selector).map_err(VlrScraperError::SelectorError)?;
-    let total_pages_elements = document.select(&selector);
+    let mut total_pages_elements = document.select(&selector);
     let total_pages = total_pages_elements
-        .last()
+        .next_back()
         .and_then(|e| e.text().next())
         .and_then(|t| t.parse::<u8>().ok())
         .unwrap_or(1);
@@ -177,7 +177,7 @@ impl<'a> TryFrom<ElementRef<'a>> for Event {
 
 #[cfg(test)]
 mod tests {
-    use crate::events::{EventType, get_events};
+    use crate::events::{get_events, EventType};
 
     use super::*;
 
