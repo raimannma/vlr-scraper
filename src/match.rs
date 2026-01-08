@@ -454,9 +454,8 @@ mod tests {
         let matches = get_matchlist(&client, event_id).await.unwrap();
         let match_id = matches[0].id;
 
-        let r#match = get_match(&client, match_id).await;
-        assert!(r#match.is_ok());
-        let r#match = r#match.unwrap();
-        println!("{:#?}", r#match);
+        let vlr_match = get_match(&client, match_id).await;
+        assert!(vlr_match.is_ok());
+        println!("{vlr_match:#?}");
     }
 }
