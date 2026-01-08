@@ -1,13 +1,15 @@
-use itertools::Itertools;
-use log::{info, warn};
-use scraper::error::SelectorErrorKind;
-use scraper::{ElementRef, Html, Selector};
-use serde::Serialize;
-
 use crate::enums::{Region, VlrScraperError};
 use crate::utils;
 use crate::utils::get_element_selector_value;
+use itertools::Itertools;
+use log::info;
+use scraper::error::SelectorErrorKind;
+use scraper::{ElementRef, Html, Selector};
+use serde::Serialize;
+use std::str::FromStr;
+use strum_macros::EnumString;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum EventType {
     Upcoming,
     Completed,
@@ -88,26 +90,17 @@ pub struct Event {
     pub dates: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(
+    Debug, Default, Clone, Serialize, EnumString, strum_macros::Display, strum_macros::FromRepr,
+)]
+#[strum(serialize_all = "lowercase")]
 pub enum EventStatus {
     Completed,
     Ongoing,
     Upcoming,
+    #[default]
+    #[strum(disabled)]
     Unknown,
-}
-
-impl From<String> for EventStatus {
-    fn from(s: String) -> Self {
-        match s.to_lowercase().as_str() {
-            "ongoing" => Self::Ongoing,
-            "upcoming" => Self::Upcoming,
-            "completed" => Self::Completed,
-            _ => {
-                warn!("Unknown event status: {s}");
-                Self::Unknown
-            }
-        }
-    }
 }
 
 impl<'a> TryFrom<ElementRef<'a>> for Event {
@@ -138,9 +131,8 @@ impl<'a> TryFrom<ElementRef<'a>> for Event {
         let status_selector = Selector::parse(
             "div.event-item-inner div.event-item-desc-item span.event-item-desc-item-status",
         )?;
-        let status = get_element_selector_value(&element, &status_selector)
-            .to_string()
-            .into();
+        let status = EventStatus::from_str(&get_element_selector_value(&element, &status_selector))
+            .unwrap_or_default();
 
         let price_selector =
             Selector::parse("div.event-item-inner div.event-item-desc-item.mod-prize")?;
