@@ -15,17 +15,14 @@ pub async fn get_player_matchlist(
     player_id: u32,
     page: u8,
 ) -> Result<PlayerMatchList, VlrScraperError> {
-    let url = format!(
-        "https://www.vlr.gg/player/matches/{}/?page={}",
-        player_id, page
-    );
+    let url = format!("https://www.vlr.gg/player/matches/{player_id}/?page={page}",);
     let document = utils::get_document(client, url).await?;
     parse_matchlist(&document)
 }
 
 fn parse_matchlist(document: &Html) -> Result<PlayerMatchList, VlrScraperError> {
     let match_item_selector = "div#wrapper div.col a.m-item";
-    let selector = Selector::parse(match_item_selector).map_err(VlrScraperError::SelectorError)?;
+    let selector = Selector::parse(match_item_selector)?;
     document
         .select(&selector)
         .map(parse_match)
@@ -42,12 +39,9 @@ fn parse_match(element: ElementRef) -> Result<PlayerMatchListItem, VlrScraperErr
                 .collect_tuple()
         })
         .map(|(id, slug)| (id.parse().unwrap_or_default(), slug.to_string()))
-        .ok_or(VlrScraperError::ParseError(
-            "Failed to parse match URL".to_string(),
-        ))?;
+        .ok_or(VlrScraperError::ElementNotFound)?;
 
-    let league_icon_selector =
-        Selector::parse("div.m-item-thumb img").map_err(VlrScraperError::SelectorError)?;
+    let league_icon_selector = Selector::parse("div.m-item-thumb img")?;
     let league_icon = element
         .select(&league_icon_selector)
         .next()
@@ -55,12 +49,10 @@ fn parse_match(element: ElementRef) -> Result<PlayerMatchListItem, VlrScraperErr
         .map(utils::parse_img_link)
         .unwrap_or_default();
 
-    let league_name_selector =
-        Selector::parse("div.m-item-event div").map_err(VlrScraperError::SelectorError)?;
+    let league_name_selector = Selector::parse("div.m-item-event div")?;
     let league_name = get_element_selector_value(&element, &league_name_selector);
 
-    let league_series_selector =
-        Selector::parse("div.m-item-event").map_err(VlrScraperError::SelectorError)?;
+    let league_series_selector = Selector::parse("div.m-item-event")?;
     let league_series_name = element
         .select(&league_series_selector)
         .filter_map(|t| t.text().last())
@@ -70,12 +62,9 @@ fn parse_match(element: ElementRef) -> Result<PlayerMatchListItem, VlrScraperErr
         .replace("\n", "")
         .replace("\t", "");
 
-    let teams_selector =
-        Selector::parse("div.m-item-team").map_err(VlrScraperError::SelectorError)?;
-    let logos_selector =
-        Selector::parse("div.m-item-logo img").map_err(VlrScraperError::SelectorError)?;
-    let scores_selector =
-        Selector::parse("div.m-item-result span").map_err(VlrScraperError::SelectorError)?;
+    let teams_selector = Selector::parse("div.m-item-team")?;
+    let logos_selector = Selector::parse("div.m-item-logo img")?;
+    let scores_selector = Selector::parse("div.m-item-result span")?;
     let teams = izip!(
         element.select(&teams_selector),
         element.select(&logos_selector),
@@ -84,21 +73,18 @@ fn parse_match(element: ElementRef) -> Result<PlayerMatchListItem, VlrScraperErr
     .map(|(team, logo, score)| parse_team(team, logo, score))
     .collect::<Result<_, _>>()?;
 
-    let vods_selector = Selector::parse("div.m-item-vods div.wf-tag span.full")
-        .map_err(VlrScraperError::SelectorError)?;
+    let vods_selector = Selector::parse("div.m-item-vods div.wf-tag span.full")?;
     let vods = element
         .select(&vods_selector)
         .filter_map(|t| t.text().last())
         .map(|t| t.trim().to_string())
         .collect_vec();
 
-    let date_selector =
-        Selector::parse("div.m-item-date div").map_err(VlrScraperError::SelectorError)?;
+    let date_selector = Selector::parse("div.m-item-date div")?;
     let date = get_element_selector_value(&element, &date_selector);
     let date = NaiveDate::parse_from_str(&date, MATCH_DATE_FORMAT).ok();
 
-    let time_selector =
-        Selector::parse("div.m-item-date").map_err(VlrScraperError::SelectorError)?;
+    let time_selector = Selector::parse("div.m-item-date")?;
     let time = element
         .select(&time_selector)
         .filter_map(|t| t.text().last())
@@ -126,12 +112,10 @@ fn parse_team(
     logo_element: ElementRef,
     score_element: ElementRef,
 ) -> Result<PlayerMatchListItemTeam, VlrScraperError> {
-    let name_selector =
-        Selector::parse("span.m-item-team-name").map_err(VlrScraperError::SelectorError)?;
+    let name_selector = Selector::parse("span.m-item-team-name")?;
     let name = get_element_selector_value(&team_element, &name_selector);
 
-    let tag_selector =
-        Selector::parse("span.m-item-team-tag").map_err(VlrScraperError::SelectorError)?;
+    let tag_selector = Selector::parse("span.m-item-team-tag")?;
     let tag = get_element_selector_value(&team_element, &tag_selector);
 
     let logo_url = logo_element
@@ -204,6 +188,6 @@ mod tests {
 
         let player_matchlist = get_player_matchlist(&client, player_id, 1).await.unwrap();
         assert!(!player_matchlist.is_empty());
-        println!("{:#?}", player_matchlist);
+        println!("{player_matchlist:#?}");
     }
 }

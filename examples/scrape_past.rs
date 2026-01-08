@@ -1,4 +1,3 @@
-use kdam::tqdm;
 use tokio::time::sleep;
 
 use vlr_scraper::enums::Region;
@@ -13,7 +12,7 @@ async fn main() {
     let mut all_events = vec![];
     loop {
         page += 1;
-        println!("Getting page {}", page);
+        println!("Getting page {page}");
         let events = get_events(&client, EventType::Completed, Region::All, page)
             .await
             .unwrap();
@@ -25,7 +24,7 @@ async fn main() {
     }
     println!("Found {} events", all_events.len());
 
-    for event in tqdm!(all_events.into_iter(), desc = "Events") {
+    for event in all_events {
         println!("Getting matches for event {}", event.id);
         if std::fs::exists(format!("events/{}/event.json", event.id)).unwrap_or_default() {
             continue;

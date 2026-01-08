@@ -1,16 +1,22 @@
-use std::fmt::{Display, Formatter};
-
 use scraper::error::SelectorErrorKind;
+use std::num::ParseIntError;
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum VlrScraperError {
-    ReqwestError(reqwest::Error),
-    SelectorError(SelectorErrorKind<'static>),
-    ParseError(String),
-    WrapperNotFound,
+    #[error("Reqwest error: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("Selector error: {0}")]
+    SelectorError(#[from] SelectorErrorKind<'static>),
+    #[error("Integer Parse error: {0}")]
+    IntegerParseError(#[from] ParseIntError),
+    #[error("Date Parse error: {0}")]
+    DateParseError(#[from] chrono::ParseError),
+    #[error("Wrapper not found")]
+    ElementNotFound,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, strum_macros::Display)]
+#[strum(serialize_all = "kebab-case")]
 pub enum Region {
     All,
     NorthAmerica,
@@ -24,23 +30,4 @@ pub enum Region {
     MiddleEastNorthAfrica,
     GameChangers,
     Collegiate,
-}
-
-impl Display for Region {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Region::All => write!(f, ""),
-            Region::NorthAmerica => write!(f, "north-america"),
-            Region::Europe => write!(f, "europe"),
-            Region::Brazil => write!(f, "brazil"),
-            Region::AsiaPacific => write!(f, "asia-pacific"),
-            Region::Korea => write!(f, "korea"),
-            Region::Japan => write!(f, "japan"),
-            Region::LatinAmerica => write!(f, "latin-america"),
-            Region::Oceania => write!(f, "oceania"),
-            Region::MiddleEastNorthAfrica => write!(f, "mena"),
-            Region::GameChangers => write!(f, "game-changers"),
-            Region::Collegiate => write!(f, "collegiate"),
-        }
-    }
 }

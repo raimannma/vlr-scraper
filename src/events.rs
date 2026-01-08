@@ -19,7 +19,7 @@ pub async fn get_events(
     region: Region,
     page: u8,
 ) -> Result<EventsData, VlrScraperError> {
-    let url = format!("https://www.vlr.gg/events/{}?page={}", region, page);
+    let url = format!("https://www.vlr.gg/events/{region}?page={page}");
     let document = utils::get_document(client, url).await?;
     let events = parse_events(&event_type, &document)?;
     let total_pages = parse_total_pages(event_type, document)?;
@@ -40,7 +40,7 @@ fn parse_total_pages(event_type: EventType, document: Html) -> Result<u8, VlrScr
             "div#wrapper div.action-container div.action-container-pages:last-child :is(span,a)"
         }
     };
-    let selector = Selector::parse(total_pages_selector).map_err(VlrScraperError::SelectorError)?;
+    let selector = Selector::parse(total_pages_selector)?;
     let mut total_pages_elements = document.select(&selector);
     let total_pages = total_pages_elements
         .next_back()
@@ -59,7 +59,7 @@ fn parse_events(event_type: &EventType, document: &Html) -> Result<Vec<Event>, V
             "div#wrapper div.events-container div.events-container-col:last-child a.event-item"
         }
     };
-    let selector = Selector::parse(event_item_selector).map_err(VlrScraperError::SelectorError)?;
+    let selector = Selector::parse(event_item_selector)?;
     let events: Vec<Event> = document
         .select(&selector)
         .map(Event::try_from)
@@ -103,7 +103,7 @@ impl From<String> for EventStatus {
             "upcoming" => Self::Upcoming,
             "completed" => Self::Completed,
             _ => {
-                warn!("Unknown event status: {}", s);
+                warn!("Unknown event status: {s}");
                 Self::Unknown
             }
         }
@@ -114,7 +114,7 @@ impl<'a> TryFrom<ElementRef<'a>> for Event {
     type Error = SelectorErrorKind<'a>;
 
     fn try_from(element: ElementRef<'a>) -> Result<Self, Self::Error> {
-        info!("Convert element to Event: {:?}", element);
+        info!("Convert element to Event: {element:?}");
 
         let href = element.value().attr("href");
         let href = href.unwrap_or_default().to_string();
@@ -122,7 +122,7 @@ impl<'a> TryFrom<ElementRef<'a>> for Event {
             .strip_prefix("/event/")
             .and_then(|s| s.split('/').map(|s| s.to_string()).collect_tuple())
             .unwrap_or_default();
-        let href = format!("https://www.vlr.gg{}", href);
+        let href = format!("https://www.vlr.gg{href}");
 
         let icon_selector = Selector::parse("div.event-item-thumb img")?;
         let icon_url = element

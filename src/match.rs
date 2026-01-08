@@ -8,37 +8,28 @@ use crate::utils;
 use crate::utils::get_element_selector_value;
 
 pub async fn get_match(client: &reqwest::Client, id: u32) -> Result<Match, VlrScraperError> {
-    let url = format!("https://www.vlr.gg/{}", id);
+    let url = format!("https://www.vlr.gg/{id}");
     let document = utils::get_document(client, url).await?;
-    let column_selector =
-        Selector::parse("div.col.mod-3").map_err(VlrScraperError::SelectorError)?;
+    let column_selector = Selector::parse("div.col.mod-3")?;
     let column = document
         .select(&column_selector)
         .next()
-        .ok_or(VlrScraperError::ParseError(
-            "Failed to parse match".to_string(),
-        ))?;
+        .ok_or(VlrScraperError::ElementNotFound)?;
     parse_match(id, &column)
 }
 
 fn parse_match(id: u32, document: &ElementRef) -> Result<Match, VlrScraperError> {
-    let header_selector =
-        Selector::parse("div.match-header").map_err(VlrScraperError::SelectorError)?;
+    let header_selector = Selector::parse("div.match-header")?;
     let header = document
         .select(&header_selector)
         .next()
-        .ok_or(VlrScraperError::ParseError(
-            "Failed to parse match header".to_string(),
-        ))?;
+        .ok_or(VlrScraperError::ElementNotFound)?;
     let header = parse_header(&header)?;
 
     let streams_container_selector =
-        Selector::parse("div.match-streams div.match-streams-container div.match-streams-btn")
-            .map_err(VlrScraperError::SelectorError)?;
-    let streams_name_selector = Selector::parse("div.match-streams-btn-embed span")
-        .map_err(VlrScraperError::SelectorError)?;
-    let streams_link_selector =
-        Selector::parse("a.match-streams-btn-external").map_err(VlrScraperError::SelectorError)?;
+        Selector::parse("div.match-streams div.match-streams-container div.match-streams-btn")?;
+    let streams_name_selector = Selector::parse("div.match-streams-btn-embed span")?;
+    let streams_link_selector = Selector::parse("a.match-streams-btn-external")?;
     let streams = document
         .select(&streams_container_selector)
         .map(|e| {
@@ -53,8 +44,7 @@ fn parse_match(id: u32, document: &ElementRef) -> Result<Match, VlrScraperError>
         })
         .collect_vec();
 
-    let vods_selector = Selector::parse("div.match-vods div.match-streams-container a")
-        .map_err(VlrScraperError::SelectorError)?;
+    let vods_selector = Selector::parse("div.match-vods div.match-streams-container a")?;
     let vods = document
         .select(&vods_selector)
         .map(|e| {
@@ -66,8 +56,7 @@ fn parse_match(id: u32, document: &ElementRef) -> Result<Match, VlrScraperError>
 
     let games_selector = Selector::parse(
         "div.vm-stats div.vm-stats-container div.vm-stats-game:not([data-game-id='all'])",
-    )
-    .map_err(VlrScraperError::SelectorError)?;
+    )?;
     let games = document.select(&games_selector).collect_vec();
     let games = parse_games(&header, &games)?;
 
@@ -81,8 +70,7 @@ fn parse_match(id: u32, document: &ElementRef) -> Result<Match, VlrScraperError>
 }
 
 fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
-    let event_icon_selector = Selector::parse("div.match-header-super a.match-header-event img")
-        .map_err(VlrScraperError::SelectorError)?;
+    let event_icon_selector = Selector::parse("div.match-header-super a.match-header-event img")?;
     let event_icon = header
         .select(&event_icon_selector)
         .next()
@@ -93,41 +81,31 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
                 .unwrap_or_default()
                 .to_string()
         })
-        .ok_or(VlrScraperError::ParseError(
-            "Failed to parse event icon".to_string(),
-        ))?;
+        .ok_or(VlrScraperError::ElementNotFound)?;
 
     let event_title_selector =
-        Selector::parse("div.match-header-super a.match-header-event div div:first-child")
-            .map_err(VlrScraperError::SelectorError)?;
+        Selector::parse("div.match-header-super a.match-header-event div div:first-child")?;
     let event_title = get_element_selector_value(header, &event_title_selector);
 
     let event_series_name_selector = Selector::parse(
         "div.match-header-super a.match-header-event div div.match-header-event-series",
-    )
-    .map_err(VlrScraperError::SelectorError)?;
+    )?;
     let event_series_name = get_element_selector_value(header, &event_series_name_selector);
 
     let match_date_selector =
-        Selector::parse("div.match-header-super div.match-header-date div.moment-tz-convert")
-            .map_err(VlrScraperError::SelectorError)?;
+        Selector::parse("div.match-header-super div.match-header-date div.moment-tz-convert")?;
     let element = header
         .select(&match_date_selector)
         .next()
-        .ok_or(VlrScraperError::ParseError(
-            "Failed to parse match date".to_string(),
-        ))?;
+        .ok_or(VlrScraperError::ElementNotFound)?;
     let date = element.value().attr("data-utc-ts").unwrap_or_default();
-    let date = NaiveDateTime::parse_from_str(date, "%Y-%m-%d %H:%M:%S")
-        .map_err(|_| VlrScraperError::ParseError("Failed to parse match date".to_string()))?;
+    let date = NaiveDateTime::parse_from_str(date, "%Y-%m-%d %H:%M:%S")?;
 
     let note_selector =
-        Selector::parse("div.match-header-super div.match-header-date *:not(.moment-tz-convert)")
-            .map_err(VlrScraperError::SelectorError)?;
+        Selector::parse("div.match-header-super div.match-header-date *:not(.moment-tz-convert)")?;
     let note = get_element_selector_value(header, &note_selector);
 
-    let team_links_selector = Selector::parse("div.match-header-vs a.match-header-link")
-        .map_err(VlrScraperError::SelectorError)?;
+    let team_links_selector = Selector::parse("div.match-header-vs a.match-header-link")?;
     let team_links = header
         .select(&team_links_selector)
         .filter_map(|e| e.value().attr("href"))
@@ -153,8 +131,7 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
             )
         })
         .collect_vec();
-    let team_icons_selector = Selector::parse("div.match-header-vs a.match-header-link img")
-        .map_err(VlrScraperError::SelectorError)?;
+    let team_icons_selector = Selector::parse("div.match-header-vs a.match-header-link img")?;
     let team_icons = header
         .select(&team_icons_selector)
         .map(|e| {
@@ -167,8 +144,7 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
         .collect_vec();
 
     let team_names_selector =
-        Selector::parse("div.match-header-vs a.match-header-link div.wf-title-med")
-            .map_err(VlrScraperError::SelectorError)?;
+        Selector::parse("div.match-header-vs a.match-header-link div.wf-title-med")?;
     let team_names = header
         .select(&team_names_selector)
         .map(|e| e.text().next().unwrap_or_default().trim().to_string())
@@ -229,24 +205,20 @@ fn parse_games(
 
 fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame, VlrScraperError> {
     let map_name_selector =
-        Selector::parse("div.vm-stats-game-header div.map div:first-child span")
-            .map_err(VlrScraperError::SelectorError)?;
+        Selector::parse("div.vm-stats-game-header div.map div:first-child span")?;
     let map = get_element_selector_value(game, &map_name_selector);
 
     let rounds_selector =
-        Selector::parse("div.vlr-rounds div.vlr-rounds-row-col:not(:first-child,.mod-spacing)")
-            .map_err(VlrScraperError::SelectorError)?;
+        Selector::parse("div.vlr-rounds div.vlr-rounds-row-col:not(:first-child,.mod-spacing)")?;
     let rounds = game.select(&rounds_selector).collect_vec();
     let rounds = parse_rounds(header, rounds)?;
 
     let players1_selector = Selector::parse(
         "div.vm-stats-container div div:first-child table tbody tr:has(td.mod-player)",
-    )
-    .map_err(VlrScraperError::SelectorError)?;
+    )?;
     let players2_selector = Selector::parse(
         "div.vm-stats-container div div:last-child table tbody tr:has(td.mod-player)",
-    )
-    .map_err(VlrScraperError::SelectorError)?;
+    )?;
     let players1 = game
         .select(&players1_selector)
         .map(parse_player)
@@ -256,8 +228,7 @@ fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame, VlrS
         .map(parse_player)
         .collect::<Result<_, _>>()?;
 
-    let team_name_selectors = Selector::parse("div.vm-stats-game-header div.team")
-        .map_err(VlrScraperError::SelectorError)?;
+    let team_name_selectors = Selector::parse("div.vm-stats-game-header div.team")?;
     let teams: Vec<MatchGameTeam> = game
         .select(&team_name_selectors)
         .zip(vec![players1, players2])
@@ -267,16 +238,12 @@ fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame, VlrS
 }
 
 fn parse_player(player: ElementRef) -> Result<MatchGamePlayer, VlrScraperError> {
-    let name_column_selector =
-        Selector::parse("td.mod-player").map_err(VlrScraperError::SelectorError)?;
-    let name_column =
-        player
-            .select(&name_column_selector)
-            .next()
-            .ok_or(VlrScraperError::ParseError(
-                "Failed to parse player name".to_string(),
-            ))?;
-    let nation_selector = Selector::parse("i.flag").map_err(VlrScraperError::SelectorError)?;
+    let name_column_selector = Selector::parse("td.mod-player")?;
+    let name_column = player
+        .select(&name_column_selector)
+        .next()
+        .ok_or(VlrScraperError::ElementNotFound)?;
+    let nation_selector = Selector::parse("i.flag")?;
     let nation = name_column
         .select(&nation_selector)
         .next()
@@ -285,7 +252,7 @@ fn parse_player(player: ElementRef) -> Result<MatchGamePlayer, VlrScraperError> 
         .trim()
         .to_string();
 
-    let a_tag_selector = Selector::parse("a").map_err(VlrScraperError::SelectorError)?;
+    let a_tag_selector = Selector::parse("a")?;
     let a_tag = name_column.select(&a_tag_selector).next();
     let href = a_tag
         .and_then(|e| e.value().attr("href"))
@@ -298,12 +265,10 @@ fn parse_player(player: ElementRef) -> Result<MatchGamePlayer, VlrScraperError> 
         .map(|s| s.to_string())
         .collect_tuple()
         .unwrap_or_default();
-    let name_selector =
-        Selector::parse("a div:first-child").map_err(VlrScraperError::SelectorError)?;
+    let name_selector = Selector::parse("a div:first-child")?;
     let name = get_element_selector_value(&name_column, &name_selector);
 
-    let agent_selector =
-        Selector::parse("td.mod-agents div span img").map_err(VlrScraperError::SelectorError)?;
+    let agent_selector = Selector::parse("td.mod-agents div span img")?;
     let agent = player
         .select(&agent_selector)
         .next()
@@ -324,10 +289,8 @@ fn parse_rounds(
     header: &MatchHeader,
     rounds: Vec<ElementRef>,
 ) -> Result<Vec<MatchGameRound>, VlrScraperError> {
-    let round_number_selector =
-        Selector::parse("div.rnd-num").map_err(VlrScraperError::SelectorError)?;
-    let round_result_selector =
-        Selector::parse("div.rnd-sq").map_err(VlrScraperError::SelectorError)?;
+    let round_number_selector = Selector::parse("div.rnd-num")?;
+    let round_result_selector = Selector::parse("div.rnd-sq")?;
     let rounds: Vec<MatchGameRound> = rounds
         .iter()
         .filter_map(|r| {

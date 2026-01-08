@@ -9,12 +9,11 @@ pub(crate) async fn get_document(
     client
         .get(&url)
         .send()
-        .await
-        .map_err(VlrScraperError::ReqwestError)?
+        .await?
         .text()
         .await
         .map(|d| Html::parse_document(&d))
-        .map_err(VlrScraperError::ReqwestError)
+        .map_err(Into::into)
 }
 
 pub(crate) fn get_element_selector_value(element: &ElementRef, selector: &Selector) -> String {
@@ -31,9 +30,9 @@ pub(crate) fn get_element_selector_value(element: &ElementRef, selector: &Select
 
 pub fn parse_img_link(s: &str) -> String {
     if s.starts_with("//") {
-        format!("https:{}", s)
+        format!("https:{s}")
     } else if s.starts_with("/") {
-        format!("https://www.vlr.gg{}", s)
+        format!("https://www.vlr.gg{s}")
     } else {
         s.to_string()
     }

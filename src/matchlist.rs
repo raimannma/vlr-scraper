@@ -13,7 +13,7 @@ pub async fn get_matchlist(
     client: &reqwest::Client,
     event_id: u32,
 ) -> Result<MatchList, VlrScraperError> {
-    let url = format!("https://www.vlr.gg/event/matches/{}", event_id);
+    let url = format!("https://www.vlr.gg/event/matches/{event_id}");
     let document = utils::get_document(client, url).await?;
     parse_matches(&document)
 }
@@ -24,7 +24,7 @@ const MATCH_TIME_FORMAT: &str = "%I:%M %p";
 
 fn parse_matches(document: &Html) -> Result<MatchList, VlrScraperError> {
     let match_item_selector = "div#wrapper :is(div.wf-label.mod-large,div.wf-card a.match-item)";
-    let selector = Selector::parse(match_item_selector).map_err(VlrScraperError::SelectorError)?;
+    let selector = Selector::parse(match_item_selector)?;
     let mut matches = vec![];
     let mut last_date = None;
     for element in document.select(&selector) {
@@ -35,17 +35,9 @@ fn parse_matches(document: &Html) -> Result<MatchList, VlrScraperError> {
             if let Some(last_date_raw) = element.text().next() {
                 let last_date_raw = last_date_raw.trim().to_string();
                 last_date = Some(
-                    NaiveDate::parse_from_str(&last_date_raw, MATCH_DATE_FORMAT)
-                        .or(NaiveDate::parse_from_str(
-                            &last_date_raw,
-                            MATCH_DATE_FORMAT_ALT,
-                        ))
-                        .map_err(|_| {
-                            VlrScraperError::ParseError(format!(
-                                "Failed to parse match date: {}",
-                                last_date_raw
-                            ))
-                        })?,
+                    NaiveDate::parse_from_str(&last_date_raw, MATCH_DATE_FORMAT).or_else(|_| {
+                        NaiveDate::parse_from_str(&last_date_raw, MATCH_DATE_FORMAT_ALT)
+                    })?,
                 );
             }
         } else {
@@ -65,29 +57,25 @@ fn parse_match(
         .strip_prefix("/")
         .and_then(|s| s.split('/').map(|s| s.to_string()).collect_tuple())
         .unwrap_or_default();
-    let href = format!("https://www.vlr.gg{}", href);
+    let href = format!("https://www.vlr.gg{href}");
 
-    let time_selector =
-        Selector::parse("div.match-item-time").map_err(VlrScraperError::SelectorError)?;
+    let time_selector = Selector::parse("div.match-item-time")?;
     let time = get_element_selector_value(element, &time_selector);
     let time = NaiveTime::parse_from_str(&time, MATCH_TIME_FORMAT).ok();
     let date_time = date.and_then(|d| time.map(|t| d.and_time(t)));
 
-    let teams_selector = Selector::parse("div.match-item-vs div.match-item-vs-team")
-        .map_err(VlrScraperError::SelectorError)?;
+    let teams_selector = Selector::parse("div.match-item-vs div.match-item-vs-team")?;
     let teams = element.select(&teams_selector).collect_vec();
     let teams = parse_teams(&teams)?;
 
-    let tags_selector =
-        Selector::parse("div.match-item-vod div.wf-tag").map_err(VlrScraperError::SelectorError)?;
+    let tags_selector = Selector::parse("div.match-item-vod div.wf-tag")?;
     let tags = element
         .select(&tags_selector)
         .filter_map(|t| t.text().last())
         .map(|t| t.trim().to_string())
         .collect_vec();
 
-    let event_text_selector =
-        Selector::parse("div.match-item-event.text-of").map_err(VlrScraperError::SelectorError)?;
+    let event_text_selector = Selector::parse("div.match-item-event.text-of")?;
     let event_text = element
         .select(&event_text_selector)
         .filter_map(|t| t.text().last())
@@ -96,14 +84,11 @@ fn parse_match(
         .unwrap_or_default();
 
     let event_series_text_selector =
-        Selector::parse("div.match-item-event.text-of div.match-item-event-series.text-of")
-            .map_err(VlrScraperError::SelectorError)?;
+        Selector::parse("div.match-item-event.text-of div.match-item-event-series.text-of")?;
     let event_series_text = get_element_selector_value(element, &event_series_text_selector);
 
     Ok(MatchListItem {
-        id: id
-            .parse()
-            .map_err(|_| VlrScraperError::ParseError("Failed to parse match ID".to_string()))?,
+        id: id.parse()?,
         slug,
         href,
         date_time,
@@ -123,12 +108,10 @@ fn parse_team(team: &ElementRef) -> Result<Team, VlrScraperError> {
         .value()
         .has_class("mod-winner", CaseSensitivity::CaseSensitive);
 
-    let name_selector = Selector::parse("div.match-item-vs-team-name div.text-of")
-        .map_err(VlrScraperError::SelectorError)?;
+    let name_selector = Selector::parse("div.match-item-vs-team-name div.text-of")?;
     let name = get_element_selector_value(team, &name_selector);
 
-    let score_selector =
-        Selector::parse("div.match-item-vs-team-score").map_err(VlrScraperError::SelectorError)?;
+    let score_selector = Selector::parse("div.match-item-vs-team-score")?;
     let score = get_element_selector_value(team, &score_selector);
     let score = score.parse().ok();
 
@@ -176,6 +159,6 @@ mod tests {
 
         let matches = get_matchlist(&client, event_id).await.unwrap();
         assert!(!matches.is_empty());
-        println!("{:#?}", matches);
+        println!("{matches:#?}");
     }
 }
