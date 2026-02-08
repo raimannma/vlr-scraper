@@ -1,11 +1,37 @@
-pub use events::get_events;
-pub use matchlist::get_matchlist;
-pub use player_matchlist::get_player_matchlist;
-pub use r#match::get_match;
+//! # vlr-scraper
+//!
+//! A Rust library for scraping Valorant esports data from [vlr.gg](https://www.vlr.gg).
+//!
+//! ## Quick start
+//!
+//! ```no_run
+//! # async fn example() -> vlr_scraper::Result<()> {
+//! use vlr_scraper::{VlrClient, EventType, Region};
+//!
+//! let client = VlrClient::new();
+//!
+//! // Fetch upcoming events
+//! let events = client.get_events(EventType::Upcoming, Region::All, 1).await?;
+//!
+//! // Fetch matches for the first event
+//! let matches = client.get_matchlist(events.events[0].id).await?;
+//!
+//! // Get detailed match info
+//! let match_detail = client.get_match(matches[0].id).await?;
+//! # Ok(())
+//! # }
+//! ```
 
-pub mod enums;
-pub mod events;
-pub mod r#match;
-pub mod matchlist;
-pub mod player_matchlist;
-pub(crate) mod utils;
+mod client;
+pub mod error;
+pub mod model;
+mod scraper;
+
+// Re-export the client as the primary public API.
+pub use client::VlrClient;
+
+// Re-export error types at the crate root for convenience.
+pub use error::{Result, VlrError};
+
+// Re-export all model types at the crate root for convenience.
+pub use model::*;
