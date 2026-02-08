@@ -1,28 +1,29 @@
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{NaiveDate, NaiveTime};
 use itertools::Itertools;
-use scraper::{CaseSensitivity, ElementRef, Html, Selector};
-use serde::Serialize;
+use ::scraper::{CaseSensitivity, ElementRef, Selector};
+use tracing::{debug, instrument, warn};
 
-use crate::enums::VlrScraperError;
-use crate::utils;
-use crate::utils::get_element_selector_value;
-
-pub type MatchList = Vec<MatchListItem>;
-
-pub async fn get_matchlist(
-    client: &reqwest::Client,
-    event_id: u32,
-) -> Result<MatchList, VlrScraperError> {
-    let url = format!("https://www.vlr.gg/event/matches/{event_id}");
-    let document = utils::get_document(client, url).await?;
-    parse_matches(&document)
-}
+use crate::error::Result;
+use crate::model::{MatchList, MatchListItem, MatchListTeam};
+use crate::scraper::{self, select_text};
 
 const MATCH_DATE_FORMAT: &str = "%a, %B %e, %Y";
 const MATCH_DATE_FORMAT_ALT: &str = "%a, %b %e, %Y";
 const MATCH_TIME_FORMAT: &str = "%I:%M %p";
 
-fn parse_matches(document: &Html) -> Result<MatchList, VlrScraperError> {
+#[instrument(skip(client))]
+pub(crate) async fn get_matchlist(
+    client: &reqwest::Client,
+    event_id: u32,
+) -> Result<MatchList> {
+    let url = format!("https://www.vlr.gg/event/matches/{event_id}");
+    let document = scraper::get_document(client, &url).await?;
+    let matches = parse_matches(&document)?;
+    debug!(count = matches.len(), event_id, "parsed match list");
+    Ok(matches)
+}
+
+fn parse_matches(document: &scraper::Html) -> Result<MatchList> {
     let match_item_selector = "div#wrapper :is(div.wf-label.mod-large,div.wf-card a.match-item)";
     let selector = Selector::parse(match_item_selector)?;
     let mut matches = vec![];
@@ -41,18 +42,20 @@ fn parse_matches(document: &Html) -> Result<MatchList, VlrScraperError> {
                 );
             }
         } else {
-            matches.push(parse_match(&element, last_date)?);
+            match parse_match_item(&element, last_date) {
+                Ok(item) => matches.push(item),
+                Err(e) => warn!(error = %e, "skipping unparseable match item"),
+            }
         }
     }
     Ok(matches)
 }
 
-fn parse_match(
+fn parse_match_item(
     element: &ElementRef,
     date: Option<NaiveDate>,
-) -> Result<MatchListItem, VlrScraperError> {
-    let href = element.value().attr("href");
-    let href = href.unwrap_or_default().to_string();
+) -> Result<MatchListItem> {
+    let href = element.value().attr("href").unwrap_or_default().to_string();
     let (id, slug) = href
         .strip_prefix("/")
         .and_then(|s| s.split('/').map(|s| s.to_string()).collect_tuple())
@@ -60,7 +63,7 @@ fn parse_match(
     let href = format!("https://www.vlr.gg{href}");
 
     let time_selector = Selector::parse("div.match-item-time")?;
-    let time = get_element_selector_value(element, &time_selector);
+    let time = select_text(element, &time_selector);
     let time = NaiveTime::parse_from_str(&time, MATCH_TIME_FORMAT).ok();
     let date_time = date.and_then(|d| time.map(|t| d.and_time(t)));
 
@@ -85,7 +88,7 @@ fn parse_match(
 
     let event_series_text_selector =
         Selector::parse("div.match-item-event.text-of div.match-item-event-series.text-of")?;
-    let event_series_text = get_element_selector_value(element, &event_series_text_selector);
+    let event_series_text = select_text(element, &event_series_text_selector);
 
     Ok(MatchListItem {
         id: id.parse()?,
@@ -99,52 +102,32 @@ fn parse_match(
     })
 }
 
-fn parse_teams(teams: &[ElementRef]) -> Result<Vec<Team>, VlrScraperError> {
+fn parse_teams(teams: &[ElementRef]) -> Result<Vec<MatchListTeam>> {
     teams.iter().map(parse_team).collect()
 }
 
-fn parse_team(team: &ElementRef) -> Result<Team, VlrScraperError> {
+fn parse_team(team: &ElementRef) -> Result<MatchListTeam> {
     let is_winner = team
         .value()
         .has_class("mod-winner", CaseSensitivity::CaseSensitive);
 
     let name_selector = Selector::parse("div.match-item-vs-team-name div.text-of")?;
-    let name = get_element_selector_value(team, &name_selector);
+    let name = select_text(team, &name_selector);
 
     let score_selector = Selector::parse("div.match-item-vs-team-score")?;
-    let score = get_element_selector_value(team, &score_selector);
+    let score = select_text(team, &score_selector);
     let score = score.parse().ok();
 
-    Ok(Team {
+    Ok(MatchListTeam {
         name,
         is_winner,
         score,
     })
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct Team {
-    pub name: String,
-    pub is_winner: bool,
-    pub score: Option<u8>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MatchListItem {
-    pub id: u32,
-    pub slug: String,
-    pub href: String,
-    pub date_time: Option<NaiveDateTime>,
-    pub teams: Vec<Team>,
-    pub tags: Vec<String>,
-    pub event_text: String,
-    pub event_series_text: String,
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::enums::Region;
-    use crate::events::EventType;
+    use crate::model::{EventType, Region};
 
     use super::*;
 
@@ -152,13 +135,13 @@ mod tests {
     async fn test_get_matches() {
         let client = reqwest::Client::new();
 
-        let events = crate::events::get_events(&client, EventType::Completed, Region::All, 1)
-            .await
-            .unwrap();
+        let events =
+            crate::scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
+                .await
+                .unwrap();
         let event_id = events.events[0].id;
 
         let matches = get_matchlist(&client, event_id).await.unwrap();
         assert!(!matches.is_empty());
-        println!("{matches:#?}");
     }
 }

@@ -1,29 +1,39 @@
 use chrono::NaiveDateTime;
 use itertools::Itertools;
-use scraper::{CaseSensitivity, ElementRef, Selector};
-use serde::Serialize;
+use ::scraper::{CaseSensitivity, ElementRef, Selector};
+use tracing::{debug, instrument};
 
-use crate::enums::VlrScraperError;
-use crate::utils;
-use crate::utils::get_element_selector_value;
+use crate::error::{Result, VlrError};
+use crate::model::{
+    Match, MatchGame, MatchGamePlayer, MatchGameRound, MatchGameTeam, MatchHeader,
+    MatchHeaderTeam, MatchStream,
+};
+use crate::scraper::{self, normalize_img_url, select_text};
 
-pub async fn get_match(client: &reqwest::Client, id: u32) -> Result<Match, VlrScraperError> {
+#[instrument(skip(client))]
+pub(crate) async fn get_match(client: &reqwest::Client, id: u32) -> Result<Match> {
     let url = format!("https://www.vlr.gg/{id}");
-    let document = utils::get_document(client, url).await?;
+    let document = scraper::get_document(client, &url).await?;
     let column_selector = Selector::parse("div.col.mod-3")?;
     let column = document
         .select(&column_selector)
         .next()
-        .ok_or(VlrScraperError::ElementNotFound)?;
-    parse_match(id, &column)
+        .ok_or(VlrError::ElementNotFound {
+            context: "match page column (div.col.mod-3)",
+        })?;
+    let result = parse_match(id, &column)?;
+    debug!(id, games = result.games.len(), "parsed match detail");
+    Ok(result)
 }
 
-fn parse_match(id: u32, document: &ElementRef) -> Result<Match, VlrScraperError> {
+fn parse_match(id: u32, document: &ElementRef) -> Result<Match> {
     let header_selector = Selector::parse("div.match-header")?;
     let header = document
         .select(&header_selector)
         .next()
-        .ok_or(VlrScraperError::ElementNotFound)?;
+        .ok_or(VlrError::ElementNotFound {
+            context: "match header (div.match-header)",
+        })?;
     let header = parse_header(&header)?;
 
     let streams_container_selector =
@@ -33,7 +43,7 @@ fn parse_match(id: u32, document: &ElementRef) -> Result<Match, VlrScraperError>
     let streams = document
         .select(&streams_container_selector)
         .map(|e| {
-            let name = get_element_selector_value(&e, &streams_name_selector);
+            let name = select_text(&e, &streams_name_selector);
             let link = e
                 .select(&streams_link_selector)
                 .next()
@@ -69,7 +79,7 @@ fn parse_match(id: u32, document: &ElementRef) -> Result<Match, VlrScraperError>
     })
 }
 
-fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
+fn parse_header(header: &ElementRef) -> Result<MatchHeader> {
     let event_icon_selector = Selector::parse("div.match-header-super a.match-header-event img")?;
     let event_icon = header
         .select(&event_icon_selector)
@@ -77,33 +87,36 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
         .map(|e| {
             e.value()
                 .attr("src")
-                .map(utils::parse_img_link)
+                .map(normalize_img_url)
                 .unwrap_or_default()
-                .to_string()
         })
-        .ok_or(VlrScraperError::ElementNotFound)?;
+        .ok_or(VlrError::ElementNotFound {
+            context: "event icon (match-header-event img)",
+        })?;
 
     let event_title_selector =
         Selector::parse("div.match-header-super a.match-header-event div div:first-child")?;
-    let event_title = get_element_selector_value(header, &event_title_selector);
+    let event_title = select_text(header, &event_title_selector);
 
     let event_series_name_selector = Selector::parse(
         "div.match-header-super a.match-header-event div div.match-header-event-series",
     )?;
-    let event_series_name = get_element_selector_value(header, &event_series_name_selector);
+    let event_series_name = select_text(header, &event_series_name_selector);
 
     let match_date_selector =
         Selector::parse("div.match-header-super div.match-header-date div.moment-tz-convert")?;
     let element = header
         .select(&match_date_selector)
         .next()
-        .ok_or(VlrScraperError::ElementNotFound)?;
+        .ok_or(VlrError::ElementNotFound {
+            context: "match date element (moment-tz-convert)",
+        })?;
     let date = element.value().attr("data-utc-ts").unwrap_or_default();
     let date = NaiveDateTime::parse_from_str(date, "%Y-%m-%d %H:%M:%S")?;
 
     let note_selector =
         Selector::parse("div.match-header-super div.match-header-date *:not(.moment-tz-convert)")?;
-    let note = get_element_selector_value(header, &note_selector);
+    let note = select_text(header, &note_selector);
 
     let team_links_selector = Selector::parse("div.match-header-vs a.match-header-link")?;
     let team_links = header
@@ -120,14 +133,14 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
                 .collect_tuple()
                 .unwrap_or_default()
         })
-        .map(|(id, slug)| (id.parse().unwrap_or_default(), slug.to_string()))
+        .map(|(id, slug)| (id.parse().unwrap_or_default(), slug))
         .collect_vec();
-    let team_links = team_links
+    let team_hrefs = team_links
         .iter()
         .map(|e| {
             format!(
                 "https://www.vlr.gg/{}",
-                e.strip_prefix("/").unwrap_or_default()
+                e.strip_prefix('/').unwrap_or_default()
             )
         })
         .collect_vec();
@@ -137,9 +150,8 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
         .map(|e| {
             e.value()
                 .attr("src")
-                .map(utils::parse_img_link)
+                .map(normalize_img_url)
                 .unwrap_or_default()
-                .to_string()
         })
         .collect_vec();
 
@@ -154,23 +166,24 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
         "div.match-header-vs div.match-header-vs-score div.match-header-vs-score span:not(.match-header-vs-score-colon)",
     ).ok();
     let team_scores: Vec<Option<u8>> = team_scores_selector
-        .map(|team_scores_selector| {
+        .map(|sel| {
             header
-                .select(&team_scores_selector)
+                .select(&sel)
                 .map(|e| e.text().next().unwrap_or_default().trim().to_string())
                 .map(|s| s.parse().ok())
                 .collect_vec()
         })
         .unwrap_or(vec![None, None]);
 
-    let team_scores = match team_scores.len() == 2 {
-        true => team_scores,
-        false => vec![None, None],
+    let team_scores = if team_scores.len() == 2 {
+        team_scores
+    } else {
+        vec![None, None]
     };
 
     let teams = team_id_slug
         .into_iter()
-        .zip(team_links)
+        .zip(team_hrefs)
         .zip(team_names)
         .zip(team_scores)
         .zip(team_icons)
@@ -199,14 +212,14 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader, VlrScraperError> {
 fn parse_games(
     header: &MatchHeader,
     games: &[ElementRef],
-) -> Result<Vec<MatchGame>, VlrScraperError> {
+) -> Result<Vec<MatchGame>> {
     games.iter().map(|g| parse_game(header, g)).collect()
 }
 
-fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame, VlrScraperError> {
+fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame> {
     let map_name_selector =
         Selector::parse("div.vm-stats-game-header div.map div:first-child span")?;
-    let map = get_element_selector_value(game, &map_name_selector);
+    let map = select_text(game, &map_name_selector);
 
     let rounds_selector =
         Selector::parse("div.vlr-rounds div.vlr-rounds-row-col:not(:first-child,.mod-spacing)")?;
@@ -222,11 +235,11 @@ fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame, VlrS
     let players1 = game
         .select(&players1_selector)
         .map(parse_player)
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<_>>()?;
     let players2 = game
         .select(&players2_selector)
         .map(parse_player)
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<_>>()?;
 
     let team_name_selectors = Selector::parse("div.vm-stats-game-header div.team")?;
     let teams: Vec<MatchGameTeam> = game
@@ -237,12 +250,14 @@ fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame, VlrS
     Ok(MatchGame { map, teams, rounds })
 }
 
-fn parse_player(player: ElementRef) -> Result<MatchGamePlayer, VlrScraperError> {
+fn parse_player(player: ElementRef) -> Result<MatchGamePlayer> {
     let name_column_selector = Selector::parse("td.mod-player")?;
     let name_column = player
         .select(&name_column_selector)
         .next()
-        .ok_or(VlrScraperError::ElementNotFound)?;
+        .ok_or(VlrError::ElementNotFound {
+            context: "player name column (td.mod-player)",
+        })?;
     let nation_selector = Selector::parse("i.flag")?;
     let nation = name_column
         .select(&nation_selector)
@@ -266,7 +281,7 @@ fn parse_player(player: ElementRef) -> Result<MatchGamePlayer, VlrScraperError> 
         .collect_tuple()
         .unwrap_or_default();
     let name_selector = Selector::parse("a div:first-child")?;
-    let name = get_element_selector_value(&name_column, &name_selector);
+    let name = select_text(&name_column, &name_selector);
 
     let agent_selector = Selector::parse("td.mod-agents div span img")?;
     let agent = player
@@ -288,13 +303,13 @@ fn parse_player(player: ElementRef) -> Result<MatchGamePlayer, VlrScraperError> 
 fn parse_rounds(
     header: &MatchHeader,
     rounds: Vec<ElementRef>,
-) -> Result<Vec<MatchGameRound>, VlrScraperError> {
+) -> Result<Vec<MatchGameRound>> {
     let round_number_selector = Selector::parse("div.rnd-num")?;
     let round_result_selector = Selector::parse("div.rnd-sq")?;
     let rounds: Vec<MatchGameRound> = rounds
         .iter()
         .filter_map(|r| {
-            let round = get_element_selector_value(r, &round_number_selector)
+            let round = select_text(r, &round_number_selector)
                 .parse()
                 .unwrap_or_default();
             let winning_team = r
@@ -330,22 +345,16 @@ fn parse_rounds(
 
 fn parse_game_team(team: ElementRef, players: Vec<MatchGamePlayer>) -> MatchGameTeam {
     let name_selector = Selector::parse("div.team-name").unwrap();
-    let name = get_element_selector_value(&team, &name_selector);
+    let name = select_text(&team, &name_selector);
 
     let score_selector = Selector::parse("div.score").unwrap();
-    let score = get_element_selector_value(&team, &score_selector)
-        .parse()
-        .ok();
+    let score = select_text(&team, &score_selector).parse().ok();
 
     let score_t_selector = Selector::parse("span.mod-t").unwrap();
-    let score_t = get_element_selector_value(&team, &score_t_selector)
-        .parse()
-        .ok();
+    let score_t = select_text(&team, &score_t_selector).parse().ok();
 
     let score_ct_selector = Selector::parse("span.mod-ct").unwrap();
-    let score_ct = get_element_selector_value(&team, &score_ct_selector)
-        .parse()
-        .ok();
+    let score_ct = select_text(&team, &score_ct_selector).parse().ok();
 
     let is_winner = team
         .select(&score_selector)
@@ -366,96 +375,28 @@ fn parse_game_team(team: ElementRef, players: Vec<MatchGamePlayer>) -> MatchGame
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct Match {
-    pub id: u32,
-    pub header: MatchHeader,
-    pub streams: Vec<MatchStream>,
-    pub vods: Vec<MatchStream>,
-    pub games: Vec<MatchGame>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MatchHeader {
-    pub event_icon: String,
-    pub event_title: String,
-    pub event_series_name: String,
-    pub date: NaiveDateTime,
-    pub note: String,
-    pub teams: Vec<MatchHeaderTeam>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MatchHeaderTeam {
-    pub id: u32,
-    pub slug: String,
-    pub href: String,
-    pub name: String,
-    pub score: Option<u8>,
-    pub icon: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MatchStream {
-    pub name: String,
-    pub link: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MatchGame {
-    pub map: String,
-    pub teams: Vec<MatchGameTeam>,
-    pub rounds: Vec<MatchGameRound>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MatchGameTeam {
-    pub name: String,
-    pub score: Option<u8>,
-    pub score_t: Option<u8>,
-    pub score_ct: Option<u8>,
-    pub is_winner: bool,
-    pub players: Vec<MatchGamePlayer>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MatchGameRound {
-    pub round: u8,
-    pub winning_team: u32,
-    pub winning_site: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MatchGamePlayer {
-    pub nation: String,
-    pub id: u32,
-    pub name: String,
-    pub slug: String,
-    pub agent: String,
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::enums::Region;
-    use crate::events::EventType;
-    use crate::matchlist::get_matchlist;
+    use crate::model::{EventType, Region};
 
     use super::*;
 
     #[tokio::test]
-    async fn test_get_matches() {
+    async fn test_get_match() {
         let client = reqwest::Client::new();
 
-        let events = crate::events::get_events(&client, EventType::Completed, Region::All, 1)
-            .await
-            .unwrap();
+        let events =
+            crate::scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
+                .await
+                .unwrap();
         let event_id = events.events[0].id;
 
-        let matches = get_matchlist(&client, event_id).await.unwrap();
+        let matches = crate::scraper::matchlist::get_matchlist(&client, event_id)
+            .await
+            .unwrap();
         let match_id = matches[0].id;
 
         let vlr_match = get_match(&client, match_id).await;
         assert!(vlr_match.is_ok());
-        println!("{vlr_match:#?}");
     }
 }
