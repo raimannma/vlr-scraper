@@ -5,11 +5,10 @@ use tracing::{debug, instrument};
 
 use crate::error::{Result, VlrError};
 use crate::model::{
-    AgentStatsTimespan, Player, PlayerAgentStats, PlayerEventPlacement, PlayerInfo,
-    PlayerMatchList, PlayerMatchListItem, PlayerMatchListTeam, PlayerNewsItem,
-    PlayerPlacementEntry, PlayerSocial, PlayerTeam,
+    AgentStatsTimespan, EventPlacement, PlacementEntry, Player, PlayerAgentStats, PlayerInfo,
+    PlayerMatchList, PlayerMatchListItem, PlayerMatchListTeam, PlayerNewsItem, Social, PlayerTeam,
 };
-use crate::vlr_scraper::{self, normalize_img_url, select_text};
+use crate::vlr_scraper::{self, infer_platform, normalize_img_url, select_text};
 
 const MATCH_DATE_FORMAT: &str = "%Y/%m/%d";
 const MATCH_TIME_FORMAT: &str = "%I:%M %p";
@@ -386,7 +385,7 @@ fn parse_player_info(document: &scraper::Html, player_id: u32) -> Result<PlayerI
                 return None;
             }
             let platform = infer_platform(&href);
-            Some(PlayerSocial {
+            Some(Social {
                 platform,
                 url: href,
                 display_text,
@@ -403,23 +402,6 @@ fn parse_player_info(document: &scraper::Html, player_id: u32) -> Result<PlayerI
         country_code,
         socials,
     })
-}
-
-fn infer_platform(url: &str) -> String {
-    let url_lower = url.to_lowercase();
-    if url_lower.contains("twitter.com") || url_lower.contains("x.com") {
-        "twitter".to_string()
-    } else if url_lower.contains("twitch.tv") {
-        "twitch".to_string()
-    } else if url_lower.contains("instagram.com") {
-        "instagram".to_string()
-    } else if url_lower.contains("youtube.com") || url_lower.contains("youtu.be") {
-        "youtube".to_string()
-    } else if url_lower.contains("tiktok.com") {
-        "tiktok".to_string()
-    } else {
-        "other".to_string()
-    }
 }
 
 fn parse_teams_section(document: &scraper::Html, section_title: &str) -> Result<Vec<PlayerTeam>> {
@@ -595,7 +577,7 @@ pub(crate) fn parse_player_news(document: &scraper::Html) -> Result<Vec<PlayerNe
 /// Parse the Event Placements section and total winnings from a player overview page.
 pub(crate) fn parse_event_placements(
     document: &scraper::Html,
-) -> Result<(Vec<PlayerEventPlacement>, Option<String>)> {
+) -> Result<(Vec<EventPlacement>, Option<String>)> {
     let label_selector = Selector::parse("h2.wf-label")?;
     let event_item_selector = Selector::parse("a.player-event-item")?;
 
@@ -668,7 +650,7 @@ pub(crate) fn parse_event_placements(
             // Placement entries: divs inside the flex: 1 container (skip the event name div)
             let flex_container = a.children().filter_map(ElementRef::wrap).next(); // first child div (flex: 1)
 
-            let entries: Vec<PlayerPlacementEntry> = flex_container
+            let entries: Vec<PlacementEntry> = flex_container
                 .map(|container| {
                     container
                         .children()
@@ -726,8 +708,9 @@ pub(crate) fn parse_event_placements(
                                 team_name
                             };
                             let team_name = team_name.trim().to_string();
+                            let team_name = if team_name.is_empty() { None } else { Some(team_name) };
 
-                            Some(PlayerPlacementEntry {
+                            Some(PlacementEntry {
                                 stage,
                                 placement,
                                 prize,
@@ -742,7 +725,7 @@ pub(crate) fn parse_event_placements(
                 return None;
             }
 
-            Some(PlayerEventPlacement {
+            Some(EventPlacement {
                 event_id,
                 event_slug,
                 event_href: href,
@@ -838,7 +821,7 @@ mod tests {
         let entry = &first.placements[0];
         assert!(!entry.stage.is_empty());
         assert!(!entry.placement.is_empty());
-        assert!(!entry.team_name.is_empty());
+        assert!(entry.team_name.is_some());
 
         // The first event (Championship Seoul) has multiple placement entries
         assert!(first.placements.len() >= 2);

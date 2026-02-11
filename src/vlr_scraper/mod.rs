@@ -2,6 +2,7 @@ pub(crate) mod events;
 pub(crate) mod match_detail;
 pub(crate) mod matchlist;
 pub(crate) mod player;
+pub(crate) mod team;
 
 pub(crate) use scraper::Html;
 use scraper::{ElementRef, Selector};
@@ -47,6 +48,24 @@ pub(crate) fn select_text(element: &ElementRef, selector: &Selector) -> String {
         .trim()
         .replace(['\n', '\t'], "")
         .to_string()
+}
+
+/// Infer the social media platform from a URL.
+pub(crate) fn infer_platform(url: &str) -> String {
+    let url_lower = url.to_lowercase();
+    if url_lower.contains("twitter.com") || url_lower.contains("x.com") {
+        "twitter".to_string()
+    } else if url_lower.contains("twitch.tv") {
+        "twitch".to_string()
+    } else if url_lower.contains("instagram.com") {
+        "instagram".to_string()
+    } else if url_lower.contains("youtube.com") || url_lower.contains("youtu.be") {
+        "youtube".to_string()
+    } else if url_lower.contains("tiktok.com") {
+        "tiktok".to_string()
+    } else {
+        "other".to_string()
+    }
 }
 
 /// Normalize a potentially relative image URL to an absolute vlr.gg URL.

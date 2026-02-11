@@ -236,6 +236,38 @@ impl VlrClient {
     pub async fn get_player(&self, player_id: u32, timespan: AgentStatsTimespan) -> Result<Player> {
         vlr_scraper::player::get_player(&self.http, player_id, timespan).await
     }
+
+    /// Fetch a complete team profile including info, roster, event placements, and total winnings.
+    ///
+    /// The returned [`Team`] contains:
+    /// - [`TeamInfo`] — name, tag, logo URL, country/country code, and social links
+    /// - [`TeamRosterMember`] entries with player/staff info, roles, and captain status
+    /// - [`EventPlacement`] history with stage results and prize earnings
+    /// - Total career winnings as an optional string
+    ///
+    /// # Arguments
+    ///
+    /// * `team_id` - The VLR.gg team ID (found in team page URLs).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> vlr_scraper::Result<()> {
+    /// use vlr_scraper::VlrClient;
+    ///
+    /// let client = VlrClient::new();
+    /// let team = client.get_team(6530).await?;
+    /// println!("{} ({:?})", team.info.name, team.info.tag);
+    /// for member in &team.roster {
+    ///     println!("  {} — {}", member.alias, member.role);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[instrument(skip(self))]
+    pub async fn get_team(&self, team_id: u32) -> Result<Team> {
+        vlr_scraper::team::get_team(&self.http, team_id).await
+    }
 }
 
 impl Default for VlrClient {
