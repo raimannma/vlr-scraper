@@ -2,7 +2,7 @@ use tracing::instrument;
 
 use crate::error::Result;
 use crate::model::*;
-use crate::scraper;
+use crate::vlr_scraper;
 
 /// The main entry point for interacting with VLR.gg.
 ///
@@ -50,31 +50,31 @@ impl VlrClient {
         region: Region,
         page: u8,
     ) -> Result<EventsData> {
-        scraper::events::get_events(&self.http, event_type, region, page).await
+        vlr_scraper::events::get_events(&self.http, event_type, region, page).await
     }
 
     /// Fetch all matches belonging to an event.
     #[instrument(skip(self))]
     pub async fn get_matchlist(&self, event_id: u32) -> Result<MatchList> {
-        scraper::matchlist::get_matchlist(&self.http, event_id).await
+        vlr_scraper::matchlist::get_matchlist(&self.http, event_id).await
     }
 
     /// Fetch full details for a specific match by ID.
     #[instrument(skip(self))]
     pub async fn get_match(&self, match_id: u32) -> Result<Match> {
-        scraper::match_detail::get_match(&self.http, match_id).await
+        vlr_scraper::match_detail::get_match(&self.http, match_id).await
     }
 
     /// Fetch a paginated list of matches a player has participated in.
     #[instrument(skip(self))]
     pub async fn get_player_matchlist(&self, player_id: u32, page: u8) -> Result<PlayerMatchList> {
-        scraper::player::get_player_matchlist(&self.http, player_id, page).await
+        vlr_scraper::player::get_player_matchlist(&self.http, player_id, page).await
     }
 
     /// Fetch a complete player profile including info, teams, agent stats, news, and event placements.
     #[instrument(skip(self))]
     pub async fn get_player(&self, player_id: u32, timespan: AgentStatsTimespan) -> Result<Player> {
-        scraper::player::get_player(&self.http, player_id, timespan).await
+        vlr_scraper::player::get_player(&self.http, player_id, timespan).await
     }
 }
 

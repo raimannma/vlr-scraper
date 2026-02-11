@@ -27,7 +27,7 @@
 mod client;
 pub mod error;
 pub mod model;
-mod scraper;
+mod vlr_scraper;
 
 // Re-export the client as the primary public API.
 pub use client::VlrClient;

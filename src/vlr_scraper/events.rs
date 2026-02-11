@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
-use ::scraper::{ElementRef, Selector};
 use itertools::Itertools;
+use scraper::{ElementRef, Selector};
 use tracing::{debug, instrument};
 
 use crate::error::{Result, VlrError};
 use crate::model::{Event, EventStatus, EventType, EventsData, Region};
-use crate::scraper::{self, normalize_img_url, select_text};
+use crate::vlr_scraper::{self, normalize_img_url, select_text};
 
 #[instrument(skip(client), fields(region = %region, page))]
 pub(crate) async fn get_events(
@@ -16,7 +16,7 @@ pub(crate) async fn get_events(
     page: u8,
 ) -> Result<EventsData> {
     let url = format!("https://www.vlr.gg/events/{region}?page={page}");
-    let document = scraper::get_document(client, &url).await?;
+    let document = vlr_scraper::get_document(client, &url).await?;
     let events = parse_events(&event_type, &document)?;
     let total_pages = parse_total_pages(event_type, &document)?;
 

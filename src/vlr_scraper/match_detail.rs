@@ -1,6 +1,6 @@
-use ::scraper::{CaseSensitivity, ElementRef, Selector};
 use chrono::NaiveDateTime;
 use itertools::Itertools;
+use scraper::{CaseSensitivity, ElementRef, Selector};
 use tracing::{debug, instrument};
 
 use crate::error::{Result, VlrError};
@@ -8,12 +8,12 @@ use crate::model::{
     Match, MatchGame, MatchGamePlayer, MatchGameRound, MatchGameTeam, MatchHeader, MatchHeaderTeam,
     MatchStream,
 };
-use crate::scraper::{self, normalize_img_url, select_text};
+use crate::vlr_scraper::{self, normalize_img_url, select_text};
 
 #[instrument(skip(client))]
 pub(crate) async fn get_match(client: &reqwest::Client, id: u32) -> Result<Match> {
     let url = format!("https://www.vlr.gg/{id}");
-    let document = scraper::get_document(client, &url).await?;
+    let document = vlr_scraper::get_document(client, &url).await?;
     let column_selector = Selector::parse("div.col.mod-3")?;
     let column = document
         .select(&column_selector)
@@ -380,12 +380,12 @@ mod tests {
         let client = reqwest::Client::new();
 
         let events =
-            crate::scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
+            crate::vlr_scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
                 .await
                 .unwrap();
         let event_id = events.events[0].id;
 
-        let matches = crate::scraper::matchlist::get_matchlist(&client, event_id)
+        let matches = crate::vlr_scraper::matchlist::get_matchlist(&client, event_id)
             .await
             .unwrap();
         let match_id = matches[0].id;

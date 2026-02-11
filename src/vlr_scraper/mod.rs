@@ -3,8 +3,8 @@ pub(crate) mod match_detail;
 pub(crate) mod matchlist;
 pub(crate) mod player;
 
-pub(crate) use ::scraper::Html;
-use ::scraper::{ElementRef, Selector};
+pub(crate) use scraper::Html;
+use scraper::{ElementRef, Selector};
 use tracing::debug;
 
 use crate::error::{Result, VlrError};

@@ -9,7 +9,7 @@ use crate::model::{
     PlayerMatchList, PlayerMatchListItem, PlayerMatchListTeam, PlayerNewsItem,
     PlayerPlacementEntry, PlayerSocial, PlayerTeam,
 };
-use crate::scraper::{self, normalize_img_url, select_text};
+use crate::vlr_scraper::{self, normalize_img_url, select_text};
 
 const MATCH_DATE_FORMAT: &str = "%Y/%m/%d";
 const MATCH_TIME_FORMAT: &str = "%I:%M %p";
@@ -21,7 +21,7 @@ pub(crate) async fn get_player_matchlist(
     page: u8,
 ) -> Result<PlayerMatchList> {
     let url = format!("https://www.vlr.gg/player/matches/{player_id}/?page={page}");
-    let document = scraper::get_document(client, &url).await?;
+    let document = vlr_scraper::get_document(client, &url).await?;
     let matches = parse_matchlist(&document)?;
     debug!(
         count = matches.len(),
@@ -160,7 +160,7 @@ pub(crate) async fn get_player(
     let overview_url = format!("https://www.vlr.gg/player/{player_id}/?timespan={timespan}");
 
     // Fetch the overview page and agent stats concurrently
-    let overview_doc = scraper::get_document(client, &overview_url).await?;
+    let overview_doc = vlr_scraper::get_document(client, &overview_url).await?;
 
     let (info, current_teams, past_teams) = parse_player_overview(&overview_doc, player_id)?;
     let news = parse_player_news(&overview_doc)?;
@@ -765,7 +765,7 @@ mod tests {
     async fn test_parse_player_overview() {
         let client = reqwest::Client::new();
         let url = "https://www.vlr.gg/player/17323";
-        let document = scraper::get_document(&client, url).await.unwrap();
+        let document = vlr_scraper::get_document(&client, url).await.unwrap();
         let (info, current_teams, past_teams) = parse_player_overview(&document, 17323).unwrap();
 
         assert_eq!(info.name, "mimi");
@@ -789,7 +789,7 @@ mod tests {
     async fn test_parse_agent_stats() {
         let client = reqwest::Client::new();
         let url = "https://www.vlr.gg/player/17323?timespan=all";
-        let document = scraper::get_document(&client, url).await.unwrap();
+        let document = vlr_scraper::get_document(&client, url).await.unwrap();
         let stats = parse_agent_stats(&document).unwrap();
 
         assert!(!stats.is_empty());
@@ -807,7 +807,7 @@ mod tests {
     async fn test_parse_player_news() {
         let client = reqwest::Client::new();
         let url = "https://www.vlr.gg/player/17323";
-        let document = scraper::get_document(&client, url).await.unwrap();
+        let document = vlr_scraper::get_document(&client, url).await.unwrap();
         let news = parse_player_news(&document).unwrap();
 
         assert!(!news.is_empty());
@@ -821,7 +821,7 @@ mod tests {
     async fn test_parse_event_placements() {
         let client = reqwest::Client::new();
         let url = "https://www.vlr.gg/player/17323";
-        let document = scraper::get_document(&client, url).await.unwrap();
+        let document = vlr_scraper::get_document(&client, url).await.unwrap();
         let (placements, total_winnings) = parse_event_placements(&document).unwrap();
 
         assert!(total_winnings.is_some());
@@ -876,17 +876,17 @@ mod tests {
         let client = reqwest::Client::new();
 
         let events =
-            crate::scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
+            crate::vlr_scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
                 .await
                 .unwrap();
         let event_id = events.events[0].id;
 
-        let matches = crate::scraper::matchlist::get_matchlist(&client, event_id)
+        let matches = crate::vlr_scraper::matchlist::get_matchlist(&client, event_id)
             .await
             .unwrap();
         let match_id = matches[0].id;
 
-        let vlr_match = crate::scraper::match_detail::get_match(&client, match_id)
+        let vlr_match = crate::vlr_scraper::match_detail::get_match(&client, match_id)
             .await
             .unwrap();
         let player_id = vlr_match.games[0].teams[0].players[0].id;

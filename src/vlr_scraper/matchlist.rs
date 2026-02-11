@@ -1,11 +1,11 @@
 use chrono::{NaiveDate, NaiveTime};
 use itertools::Itertools;
-use ::scraper::{CaseSensitivity, ElementRef, Selector};
+use scraper::{CaseSensitivity, ElementRef, Selector};
 use tracing::{debug, instrument, warn};
 
 use crate::error::Result;
 use crate::model::{MatchList, MatchListItem, MatchListTeam};
-use crate::scraper::{self, select_text};
+use crate::vlr_scraper::{self, select_text};
 
 const MATCH_DATE_FORMAT: &str = "%a, %B %e, %Y";
 const MATCH_DATE_FORMAT_ALT: &str = "%a, %b %e, %Y";
@@ -14,7 +14,7 @@ const MATCH_TIME_FORMAT: &str = "%I:%M %p";
 #[instrument(skip(client))]
 pub(crate) async fn get_matchlist(client: &reqwest::Client, event_id: u32) -> Result<MatchList> {
     let url = format!("https://www.vlr.gg/event/matches/{event_id}");
-    let document = scraper::get_document(client, &url).await?;
+    let document = vlr_scraper::get_document(client, &url).await?;
     let matches = parse_matches(&document)?;
     debug!(count = matches.len(), event_id, "parsed match list");
     Ok(matches)
@@ -129,7 +129,7 @@ mod tests {
         let client = reqwest::Client::new();
 
         let events =
-            crate::scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
+            crate::vlr_scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
                 .await
                 .unwrap();
         let event_id = events.events[0].id;

@@ -1,6 +1,6 @@
 use std::num::ParseIntError;
 
-use ::scraper::error::SelectorErrorKind;
+use scraper::error::SelectorErrorKind;
 
 /// All errors that can occur during VLR scraping operations.
 #[derive(thiserror::Error, Debug)]
