@@ -22,9 +22,7 @@
 //! let match_detail = client.get_match(matches[0].id).await?;
 //!
 //! // Fetch a player profile (info, teams, agent stats, news, placements)
-//! let player = client
-//!     .get_player(17323, AgentStatsTimespan::default())
-//!     .await?;
+//! let player = client.get_player(17323, Default::default()).await?;
 //! println!("{} from {:?}", player.info.name, player.info.country);
 //!
 //! // Fetch a player's match history

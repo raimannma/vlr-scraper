@@ -22,7 +22,7 @@ use crate::vlr_scraper;
 /// println!("Found {} events", events.events.len());
 ///
 /// // Fetch a player profile
-/// let player = client.get_player(17323, AgentStatsTimespan::default()).await?;
+/// let player = client.get_player(17323, Default::default()).await?;
 /// println!("{} ({:?})", player.info.name, player.info.country);
 /// # Ok(())
 /// # }
@@ -81,7 +81,9 @@ impl VlrClient {
     /// use vlr_scraper::{EventType, Region, VlrClient};
     ///
     /// let client = VlrClient::new();
-    /// let data = client.get_events(EventType::Upcoming, Region::Europe, 1).await?;
+    /// let data = client
+    ///     .get_events(EventType::Upcoming, Region::Europe, 1)
+    ///     .await?;
     /// for event in &data.events {
     ///     println!("[{}] {} ({})", event.status, event.title, event.dates);
     /// }
@@ -150,7 +152,10 @@ impl VlrClient {
     /// let m = client.get_match(429519).await?;
     /// println!("{} — {}", m.header.event_title, m.header.event_series_name);
     /// for game in &m.games {
-    ///     println!("  {} — {} vs {}", game.map, game.teams[0].name, game.teams[1].name);
+    ///     println!(
+    ///         "  {} — {} vs {}",
+    ///         game.map, game.teams[0].name, game.teams[1].name
+    ///     );
     /// }
     /// # Ok(())
     /// # }
@@ -219,7 +224,10 @@ impl VlrClient {
     ///     println!("  team: {}", team.name);
     /// }
     /// for stat in &player.agent_stats {
-    ///     println!("  {} — rating {:.2}, K/D {:.2}", stat.agent, stat.rating, stat.kd);
+    ///     println!(
+    ///         "  {} — rating {:.2}, K/D {:.2}",
+    ///         stat.agent, stat.rating, stat.kd
+    ///     );
     /// }
     /// # Ok(())
     /// # }
