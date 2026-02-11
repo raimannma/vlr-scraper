@@ -1,6 +1,6 @@
-use ::scraper::{CaseSensitivity, ElementRef, Selector};
 use chrono::{NaiveDate, NaiveTime};
 use itertools::Itertools;
+use ::scraper::{CaseSensitivity, ElementRef, Selector};
 use tracing::{debug, instrument, warn};
 
 use crate::error::Result;
@@ -41,7 +41,7 @@ fn parse_matches(document: &scraper::Html) -> Result<MatchList> {
         } else {
             match parse_match_item(&element, last_date) {
                 Ok(item) => matches.push(item),
-                Err(e) => warn!(error = %e, "skipping unparseable match item"),
+                Err(e) => warn!(error = %e, "skipping unparsable match item"),
             }
         }
     }
