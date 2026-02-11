@@ -1,9 +1,7 @@
-pub(crate) mod event_matchlist;
 pub(crate) mod events;
-pub(crate) mod match_detail;
-pub(crate) mod match_item;
-pub(crate) mod player;
-pub(crate) mod team;
+pub(crate) mod matches;
+pub(crate) mod players;
+pub(crate) mod teams;
 
 pub(crate) use scraper::Html;
 use scraper::{ElementRef, Selector};

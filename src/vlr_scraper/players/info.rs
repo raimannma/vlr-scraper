@@ -4,26 +4,10 @@ use tracing::{debug, instrument};
 
 use crate::error::{Result, VlrError};
 use crate::model::{
-    AgentStatsTimespan, EventPlacement, MatchItem, PlacementEntry, Player, PlayerAgentStats,
-    PlayerInfo, PlayerNewsItem, PlayerTeam, Social,
+    AgentStatsTimespan, EventPlacement, PlacementEntry, Player, PlayerAgentStats, PlayerInfo,
+    PlayerNewsItem, PlayerTeam, Social,
 };
-use crate::vlr_scraper::{self, infer_platform, match_item, normalize_img_url, select_text};
-
-#[instrument(skip(client))]
-pub(crate) async fn get_player_matchlist(
-    client: &reqwest::Client,
-    player_id: u32,
-    page: u8,
-) -> Result<Vec<MatchItem>> {
-    let url = format!("https://www.vlr.gg/player/matches/{player_id}/?page={page}");
-    let document = vlr_scraper::get_document(client, &url).await?;
-    let matches = match_item::parse_match_items(&document)?;
-    debug!(
-        count = matches.len(),
-        player_id, page, "parsed player match list"
-    );
-    Ok(matches)
-}
+use crate::vlr_scraper::{self, infer_platform, normalize_img_url, select_text};
 
 /// Fetch a complete player profile: basic info, teams, agent stats, news, and event placements.
 #[instrument(skip(client))]
@@ -56,7 +40,7 @@ pub(crate) async fn get_player(
 }
 
 /// Parse agent stats from the table on a player overview page.
-pub(crate) fn parse_agent_stats(document: &scraper::Html) -> Result<Vec<PlayerAgentStats>> {
+fn parse_agent_stats(document: &scraper::Html) -> Result<Vec<PlayerAgentStats>> {
     let row_selector = Selector::parse("table.wf-table tbody tr")?;
     let td_selector = Selector::parse("td")?;
     let img_selector = Selector::parse("img")?;
@@ -170,7 +154,7 @@ fn parse_u32(text: &str) -> u32 {
 }
 
 /// Parse the player overview page and return basic info and team lists.
-pub(crate) fn parse_player_overview(
+fn parse_player_overview(
     document: &scraper::Html,
     player_id: u32,
 ) -> Result<(PlayerInfo, Vec<PlayerTeam>, Vec<PlayerTeam>)> {
@@ -384,7 +368,7 @@ fn parse_player_team(element: ElementRef) -> Result<PlayerTeam> {
 }
 
 /// Parse the Latest News section from a player overview page.
-pub(crate) fn parse_player_news(document: &scraper::Html) -> Result<Vec<PlayerNewsItem>> {
+fn parse_player_news(document: &scraper::Html) -> Result<Vec<PlayerNewsItem>> {
     let label_selector = Selector::parse("h2.wf-label")?;
     let item_selector = Selector::parse("a.wf-module-item")?;
     let date_selector = Selector::parse("div.ge-text-light")?;
@@ -451,7 +435,7 @@ pub(crate) fn parse_player_news(document: &scraper::Html) -> Result<Vec<PlayerNe
 }
 
 /// Parse the Event Placements section and total winnings from a player overview page.
-pub(crate) fn parse_event_placements(
+fn parse_event_placements(
     document: &scraper::Html,
 ) -> Result<(Vec<EventPlacement>, Option<String>)> {
     let label_selector = Selector::parse("h2.wf-label")?;
@@ -622,7 +606,6 @@ pub(crate) fn parse_event_placements(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{EventType, Region};
 
     #[tokio::test]
     async fn test_parse_player_overview() {
@@ -732,29 +715,5 @@ mod tests {
 
         // Event placements
         assert!(!player.event_placements.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_get_player_matchlist() {
-        let client = reqwest::Client::new();
-
-        let events =
-            crate::vlr_scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
-                .await
-                .unwrap();
-        let event_id = events.events[0].id;
-
-        let matches = crate::vlr_scraper::event_matchlist::get_event_matchlist(&client, event_id)
-            .await
-            .unwrap();
-        let match_id = matches[0].id;
-
-        let vlr_match = crate::vlr_scraper::match_detail::get_match(&client, match_id)
-            .await
-            .unwrap();
-        let player_id = vlr_match.games[0].teams[0].players[0].id;
-
-        let player_matchlist = get_player_matchlist(&client, player_id, 1).await.unwrap();
-        assert!(!player_matchlist.is_empty());
     }
 }

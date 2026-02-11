@@ -97,7 +97,7 @@ impl VlrClient {
         region: Region,
         page: u8,
     ) -> Result<EventsData> {
-        vlr_scraper::events::get_events(&self.http, event_type, region, page).await
+        vlr_scraper::events::list::get_events(&self.http, event_type, region, page).await
     }
 
     /// Fetch all matches belonging to an event.
@@ -127,7 +127,7 @@ impl VlrClient {
     /// ```
     #[instrument(skip(self))]
     pub async fn get_event_matchlist(&self, event_id: u32) -> Result<EventMatchList> {
-        vlr_scraper::event_matchlist::get_event_matchlist(&self.http, event_id).await
+        vlr_scraper::events::matchlist::get_event_matchlist(&self.http, event_id).await
     }
 
     /// Fetch full details for a specific match by ID.
@@ -162,7 +162,7 @@ impl VlrClient {
     /// ```
     #[instrument(skip(self))]
     pub async fn get_match(&self, match_id: u32) -> Result<Match> {
-        vlr_scraper::match_detail::get_match(&self.http, match_id).await
+        vlr_scraper::matches::detail::get_match(&self.http, match_id).await
     }
 
     /// Fetch a paginated list of matches a player has participated in.
@@ -193,7 +193,7 @@ impl VlrClient {
     /// ```
     #[instrument(skip(self))]
     pub async fn get_player_matchlist(&self, player_id: u32, page: u8) -> Result<PlayerMatchList> {
-        vlr_scraper::player::get_player_matchlist(&self.http, player_id, page).await
+        vlr_scraper::players::matchlist::get_player_matchlist(&self.http, player_id, page).await
     }
 
     /// Fetch a complete player profile including info, teams, agent stats, news, and event placements.
@@ -234,7 +234,7 @@ impl VlrClient {
     /// ```
     #[instrument(skip(self))]
     pub async fn get_player(&self, player_id: u32, timespan: AgentStatsTimespan) -> Result<Player> {
-        vlr_scraper::player::get_player(&self.http, player_id, timespan).await
+        vlr_scraper::players::info::get_player(&self.http, player_id, timespan).await
     }
 
     /// Fetch a paginated list of matches a team has participated in.
@@ -265,7 +265,7 @@ impl VlrClient {
     /// ```
     #[instrument(skip(self))]
     pub async fn get_team_matchlist(&self, team_id: u32, page: u8) -> Result<Vec<MatchItem>> {
-        vlr_scraper::team::get_team_matchlist(&self.http, team_id, page).await
+        vlr_scraper::teams::matchlist::get_team_matchlist(&self.http, team_id, page).await
     }
 
     /// Fetch a team's roster transaction history (joins, leaves, inactive changes).
@@ -297,7 +297,7 @@ impl VlrClient {
     /// ```
     #[instrument(skip(self))]
     pub async fn get_team_transactions(&self, team_id: u32) -> Result<Vec<TeamTransaction>> {
-        vlr_scraper::team::get_team_transactions(&self.http, team_id).await
+        vlr_scraper::teams::transactions::get_team_transactions(&self.http, team_id).await
     }
 
     /// Fetch a complete team profile including info, roster, event placements, and total winnings.
@@ -329,7 +329,7 @@ impl VlrClient {
     /// ```
     #[instrument(skip(self))]
     pub async fn get_team(&self, team_id: u32) -> Result<Team> {
-        vlr_scraper::team::get_team(&self.http, team_id).await
+        vlr_scraper::teams::info::get_team(&self.http, team_id).await
     }
 }
 

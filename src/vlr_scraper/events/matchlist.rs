@@ -132,7 +132,7 @@ mod tests {
         let client = reqwest::Client::new();
 
         let events =
-            crate::vlr_scraper::events::get_events(&client, EventType::Completed, Region::All, 1)
+            crate::vlr_scraper::events::list::get_events(&client, EventType::Completed, Region::All, 1)
                 .await
                 .unwrap();
         let event_id = events.events[0].id;

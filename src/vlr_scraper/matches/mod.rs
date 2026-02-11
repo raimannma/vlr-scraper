@@ -1,3 +1,5 @@
+pub(crate) mod detail;
+
 use chrono::{NaiveDate, NaiveTime};
 use itertools::{izip, Itertools};
 use scraper::{ElementRef, Selector};
