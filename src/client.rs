@@ -140,7 +140,7 @@ impl VlrClient {
     ///
     /// # Arguments
     ///
-    /// * `match_id` - The VLR.gg match ID (found in [`MatchListItem::id`]).
+    /// * `match_id` - The VLR.gg match ID (found in [`EventMatchListItem::id`]).
     ///
     /// # Examples
     ///
@@ -203,7 +203,7 @@ impl VlrClient {
     /// - Current and past [`PlayerTeam`] entries with team ID, name, logo, and join info
     /// - [`PlayerAgentStats`] for the given timespan (rating, ACS, K/D, ADR, KAST, etc.)
     /// - Recent [`PlayerNewsItem`] articles mentioning the player
-    /// - [`PlayerEventPlacement`] history with per-stage results and total winnings
+    /// - [`EventPlacement`] history with per-stage results and total winnings
     ///
     /// # Arguments
     ///

@@ -131,10 +131,14 @@ mod tests {
     async fn test_get_matches() {
         let client = reqwest::Client::new();
 
-        let events =
-            crate::vlr_scraper::events::list::get_events(&client, EventType::Completed, Region::All, 1)
-                .await
-                .unwrap();
+        let events = crate::vlr_scraper::events::list::get_events(
+            &client,
+            EventType::Completed,
+            Region::All,
+            1,
+        )
+        .await
+        .unwrap();
         let event_id = events.events[0].id;
 
         let matches = get_event_matchlist(&client, event_id).await.unwrap();
