@@ -268,6 +268,38 @@ impl VlrClient {
         vlr_scraper::team::get_team_matchlist(&self.http, team_id, page).await
     }
 
+    /// Fetch a team's roster transaction history (joins, leaves, inactive changes).
+    ///
+    /// Returns a `Vec<TeamTransaction>` where each entry contains the date,
+    /// action type, player info (id, alias, real name, country code), position,
+    /// and an optional reference URL.
+    ///
+    /// # Arguments
+    ///
+    /// * `team_id` - The VLR.gg team ID (found in team page URLs).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> vlr_scraper::Result<()> {
+    /// use vlr_scraper::VlrClient;
+    ///
+    /// let client = VlrClient::new();
+    /// let transactions = client.get_team_transactions(6530).await?;
+    /// for txn in &transactions {
+    ///     println!(
+    ///         "{:?} — {} {} ({})",
+    ///         txn.date, txn.action, txn.player_alias, txn.position
+    ///     );
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[instrument(skip(self))]
+    pub async fn get_team_transactions(&self, team_id: u32) -> Result<Vec<TeamTransaction>> {
+        vlr_scraper::team::get_team_transactions(&self.http, team_id).await
+    }
+
     /// Fetch a complete team profile including info, roster, event placements, and total winnings.
     ///
     /// The returned [`Team`] contains:

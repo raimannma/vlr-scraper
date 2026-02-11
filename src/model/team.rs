@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use serde::Serialize;
 
 use super::common::{EventPlacement, Social};
@@ -36,3 +37,20 @@ pub struct TeamRosterMember {
     pub role: String,
     pub is_captain: bool,
 }
+
+/// A single roster transaction (join, leave, or inactive change).
+#[derive(Debug, Clone, Serialize)]
+pub struct TeamTransaction {
+    pub date: Option<NaiveDate>,
+    pub action: String,
+    pub player_id: u32,
+    pub player_slug: String,
+    pub player_alias: String,
+    pub player_real_name: Option<String>,
+    pub player_country_code: Option<String>,
+    pub position: String,
+    pub reference_url: Option<String>,
+}
+
+/// A list of team roster transactions.
+pub type TeamTransactions = Vec<TeamTransaction>;
