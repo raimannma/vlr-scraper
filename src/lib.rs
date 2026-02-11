@@ -20,6 +20,15 @@
 //!
 //! // Get detailed match info
 //! let match_detail = client.get_match(matches[0].id).await?;
+//!
+//! // Fetch a player profile (info, teams, agent stats, news, placements)
+//! let player = client
+//!     .get_player(17323, AgentStatsTimespan::default())
+//!     .await?;
+//! println!("{} from {:?}", player.info.name, player.info.country);
+//!
+//! // Fetch a player's match history
+//! let player_matches = client.get_player_matchlist(17323, 1).await?;
 //! # Ok(())
 //! # }
 //! ```
