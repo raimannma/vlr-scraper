@@ -1,6 +1,6 @@
 use chrono::{NaiveDate, NaiveTime};
 use itertools::{izip, Itertools};
-use ::scraper::{ElementRef, Selector};
+use scraper::{ElementRef, Selector};
 use tracing::{debug, instrument};
 
 use crate::error::{Result, VlrError};
