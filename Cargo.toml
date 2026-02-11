@@ -5,19 +5,19 @@ edition = "2021"
 description = "A Rust library for scraping Valorant esports data from vlr.gg"
 
 [dependencies]
-chrono = { version = "0.4.42", features = ["serde"] }
-itertools = "0.14.0"
-reqwest = "0.13.1"
-scraper = "0.25.0"
-serde = { version = "1.0.228", features = ["derive"] }
-strum = { version = "0.27.2", features = ["derive"] }
-strum_macros = "0.27.2"
-thiserror = "2.0.17"
-tokio = { version = "1.49.0", features = ["macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+itertools = "0.14"
+reqwest = "0.13"
+scraper = "0.25"
+serde = { version = "1", features = ["derive"] }
+strum = { version = "0.27", features = ["derive"] }
+strum_macros = "0.27"
+thiserror = "2"
+tokio = { version = "1", features = ["macros"] }
 tracing = "0.1"
 
 [dev-dependencies]
-tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [package.metadata.cargo-machete]
 ignored = ["strum"]
