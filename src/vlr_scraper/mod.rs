@@ -1,6 +1,7 @@
+pub(crate) mod event_matchlist;
 pub(crate) mod events;
 pub(crate) mod match_detail;
-pub(crate) mod matchlist;
+pub(crate) mod match_item;
 pub(crate) mod player;
 pub(crate) mod team;
 

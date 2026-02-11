@@ -3,8 +3,26 @@ use scraper::Selector;
 use tracing::{debug, instrument};
 
 use crate::error::Result;
-use crate::model::{EventPlacement, PlacementEntry, Social, Team, TeamInfo, TeamRosterMember};
-use crate::vlr_scraper::{self, infer_platform, normalize_img_url, select_text};
+use crate::model::{
+    EventPlacement, MatchItem, PlacementEntry, Social, Team, TeamInfo, TeamRosterMember,
+};
+use crate::vlr_scraper::{self, infer_platform, match_item, normalize_img_url, select_text};
+
+#[instrument(skip(client))]
+pub(crate) async fn get_team_matchlist(
+    client: &reqwest::Client,
+    team_id: u32,
+    page: u8,
+) -> Result<Vec<MatchItem>> {
+    let url = format!("https://www.vlr.gg/team/matches/{team_id}/?page={page}");
+    let document = vlr_scraper::get_document(client, &url).await?;
+    let matches = match_item::parse_match_items(&document)?;
+    debug!(
+        count = matches.len(),
+        team_id, page, "parsed team match list"
+    );
+    Ok(matches)
+}
 
 #[instrument(skip(client))]
 pub(crate) async fn get_team(client: &reqwest::Client, team_id: u32) -> Result<Team> {
@@ -27,12 +45,11 @@ pub(crate) async fn get_team(client: &reqwest::Client, team_id: u32) -> Result<T
 
 fn parse_team_header(document: &scraper::Html, team_id: u32) -> Result<TeamInfo> {
     let header_selector = Selector::parse(".team-header")?;
-    let header = document
-        .select(&header_selector)
-        .next()
-        .ok_or(crate::error::VlrError::ElementNotFound {
+    let header = document.select(&header_selector).next().ok_or(
+        crate::error::VlrError::ElementNotFound {
             context: "team header",
-        })?;
+        },
+    )?;
 
     // Name from h1.wf-title inside .team-header
     let name_selector = Selector::parse("h1.wf-title")?;
@@ -365,6 +382,29 @@ fn parse_event_placements(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn test_get_team_matchlist() {
+        let client = reqwest::Client::new();
+        let matches = get_team_matchlist(&client, 6530, 1).await.unwrap();
+
+        assert!(!matches.is_empty());
+
+        let first = &matches[0];
+        assert!(first.id > 0);
+        assert!(!first.league_name.is_empty());
+        assert_eq!(first.teams.len(), 2);
+        assert!(!first.teams[0].name.is_empty());
+        assert!(!first.teams[1].name.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_team_matchlist_page2() {
+        let client = reqwest::Client::new();
+        let matches = get_team_matchlist(&client, 6530, 2).await.unwrap();
+
+        assert!(!matches.is_empty());
+    }
 
     #[tokio::test]
     async fn test_get_team() {

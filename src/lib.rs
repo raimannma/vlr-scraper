@@ -16,7 +16,7 @@
 //!     .await?;
 //!
 //! // Fetch matches for the first event
-//! let matches = client.get_matchlist(events.events[0].id).await?;
+//! let matches = client.get_event_matchlist(events.events[0].id).await?;
 //!
 //! // Get detailed match info
 //! let match_detail = client.get_match(matches[0].id).await?;
@@ -27,6 +27,9 @@
 //!
 //! // Fetch a player's match history
 //! let player_matches = client.get_player_matchlist(17323, 1).await?;
+//!
+//! // Fetch a team's match history
+//! let team_matches = client.get_team_matchlist(6530, 1).await?;
 //! # Ok(())
 //! # }
 //! ```

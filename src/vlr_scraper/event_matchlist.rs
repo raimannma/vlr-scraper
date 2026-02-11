@@ -4,7 +4,7 @@ use scraper::{CaseSensitivity, ElementRef, Selector};
 use tracing::{debug, instrument, warn};
 
 use crate::error::Result;
-use crate::model::{MatchList, MatchListItem, MatchListTeam};
+use crate::model::{EventMatchList, EventMatchListItem, EventMatchListTeam};
 use crate::vlr_scraper::{self, select_text};
 
 const MATCH_DATE_FORMAT: &str = "%a, %B %e, %Y";
@@ -12,7 +12,10 @@ const MATCH_DATE_FORMAT_ALT: &str = "%a, %b %e, %Y";
 const MATCH_TIME_FORMAT: &str = "%I:%M %p";
 
 #[instrument(skip(client))]
-pub(crate) async fn get_matchlist(client: &reqwest::Client, event_id: u32) -> Result<MatchList> {
+pub(crate) async fn get_event_matchlist(
+    client: &reqwest::Client,
+    event_id: u32,
+) -> Result<EventMatchList> {
     let url = format!("https://www.vlr.gg/event/matches/{event_id}");
     let document = vlr_scraper::get_document(client, &url).await?;
     let matches = parse_matches(&document)?;
@@ -20,7 +23,7 @@ pub(crate) async fn get_matchlist(client: &reqwest::Client, event_id: u32) -> Re
     Ok(matches)
 }
 
-fn parse_matches(document: &scraper::Html) -> Result<MatchList> {
+fn parse_matches(document: &scraper::Html) -> Result<EventMatchList> {
     let match_item_selector = "div#wrapper :is(div.wf-label.mod-large,div.wf-card a.match-item)";
     let selector = Selector::parse(match_item_selector)?;
     let mut matches = vec![];
@@ -48,7 +51,7 @@ fn parse_matches(document: &scraper::Html) -> Result<MatchList> {
     Ok(matches)
 }
 
-fn parse_match_item(element: &ElementRef, date: Option<NaiveDate>) -> Result<MatchListItem> {
+fn parse_match_item(element: &ElementRef, date: Option<NaiveDate>) -> Result<EventMatchListItem> {
     let href = element.value().attr("href").unwrap_or_default().to_string();
     let (id, slug) = href
         .strip_prefix("/")
@@ -84,7 +87,7 @@ fn parse_match_item(element: &ElementRef, date: Option<NaiveDate>) -> Result<Mat
         Selector::parse("div.match-item-event.text-of div.match-item-event-series.text-of")?;
     let event_series_text = select_text(element, &event_series_text_selector);
 
-    Ok(MatchListItem {
+    Ok(EventMatchListItem {
         id: id.parse()?,
         slug,
         href,
@@ -96,11 +99,11 @@ fn parse_match_item(element: &ElementRef, date: Option<NaiveDate>) -> Result<Mat
     })
 }
 
-fn parse_teams(teams: &[ElementRef]) -> Result<Vec<MatchListTeam>> {
+fn parse_teams(teams: &[ElementRef]) -> Result<Vec<EventMatchListTeam>> {
     teams.iter().map(parse_team).collect()
 }
 
-fn parse_team(team: &ElementRef) -> Result<MatchListTeam> {
+fn parse_team(team: &ElementRef) -> Result<EventMatchListTeam> {
     let is_winner = team
         .value()
         .has_class("mod-winner", CaseSensitivity::CaseSensitive);
@@ -112,7 +115,7 @@ fn parse_team(team: &ElementRef) -> Result<MatchListTeam> {
     let score = select_text(team, &score_selector);
     let score = score.parse().ok();
 
-    Ok(MatchListTeam {
+    Ok(EventMatchListTeam {
         name,
         is_winner,
         score,
@@ -134,7 +137,7 @@ mod tests {
                 .unwrap();
         let event_id = events.events[0].id;
 
-        let matches = get_matchlist(&client, event_id).await.unwrap();
+        let matches = get_event_matchlist(&client, event_id).await.unwrap();
         assert!(!matches.is_empty());
     }
 }

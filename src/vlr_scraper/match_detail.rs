@@ -385,7 +385,7 @@ mod tests {
                 .unwrap();
         let event_id = events.events[0].id;
 
-        let matches = crate::vlr_scraper::matchlist::get_matchlist(&client, event_id)
+        let matches = crate::vlr_scraper::event_matchlist::get_event_matchlist(&client, event_id)
             .await
             .unwrap();
         let match_id = matches[0].id;

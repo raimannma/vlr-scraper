@@ -102,7 +102,7 @@ impl VlrClient {
 
     /// Fetch all matches belonging to an event.
     ///
-    /// Returns a [`MatchList`] (a `Vec<MatchListItem>`) where each item contains
+    /// Returns an [`EventMatchList`] (a `Vec<EventMatchListItem>`) where each item contains
     /// the match ID, slug, date/time, participating teams with scores, tags, and
     /// event series text.
     ///
@@ -117,7 +117,7 @@ impl VlrClient {
     /// use vlr_scraper::VlrClient;
     ///
     /// let client = VlrClient::new();
-    /// let matches = client.get_matchlist(2095).await?;
+    /// let matches = client.get_event_matchlist(2095).await?;
     /// for m in &matches {
     ///     let teams: Vec<_> = m.teams.iter().map(|t| t.name.as_str()).collect();
     ///     println!("{} — {}", teams.join(" vs "), m.event_series_text);
@@ -126,8 +126,8 @@ impl VlrClient {
     /// # }
     /// ```
     #[instrument(skip(self))]
-    pub async fn get_matchlist(&self, event_id: u32) -> Result<MatchList> {
-        vlr_scraper::matchlist::get_matchlist(&self.http, event_id).await
+    pub async fn get_event_matchlist(&self, event_id: u32) -> Result<EventMatchList> {
+        vlr_scraper::event_matchlist::get_event_matchlist(&self.http, event_id).await
     }
 
     /// Fetch full details for a specific match by ID.
@@ -235,6 +235,37 @@ impl VlrClient {
     #[instrument(skip(self))]
     pub async fn get_player(&self, player_id: u32, timespan: AgentStatsTimespan) -> Result<Player> {
         vlr_scraper::player::get_player(&self.http, player_id, timespan).await
+    }
+
+    /// Fetch a paginated list of matches a team has participated in.
+    ///
+    /// Returns a `Vec<MatchItem>` where each entry contains the match ID,
+    /// league name and icon, participating teams with scores, VOD links, and
+    /// a match start timestamp.
+    ///
+    /// # Arguments
+    ///
+    /// * `team_id` - The VLR.gg team ID.
+    /// * `page` - Page number (1-indexed).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> vlr_scraper::Result<()> {
+    /// use vlr_scraper::VlrClient;
+    ///
+    /// let client = VlrClient::new();
+    /// let matches = client.get_team_matchlist(6530, 1).await?;
+    /// for m in &matches {
+    ///     let teams: Vec<_> = m.teams.iter().map(|t| t.name.as_str()).collect();
+    ///     println!("[{}] {}", m.league_name, teams.join(" vs "));
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[instrument(skip(self))]
+    pub async fn get_team_matchlist(&self, team_id: u32, page: u8) -> Result<Vec<MatchItem>> {
+        vlr_scraper::team::get_team_matchlist(&self.http, team_id, page).await
     }
 
     /// Fetch a complete team profile including info, roster, event placements, and total winnings.

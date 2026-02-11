@@ -1,152 +1,28 @@
-use chrono::{NaiveDate, NaiveTime};
-use itertools::{izip, Itertools};
+use itertools::Itertools;
 use scraper::{ElementRef, Selector};
 use tracing::{debug, instrument};
 
 use crate::error::{Result, VlrError};
 use crate::model::{
-    AgentStatsTimespan, EventPlacement, PlacementEntry, Player, PlayerAgentStats, PlayerInfo,
-    PlayerMatchList, PlayerMatchListItem, PlayerMatchListTeam, PlayerNewsItem, Social, PlayerTeam,
+    AgentStatsTimespan, EventPlacement, MatchItem, PlacementEntry, Player, PlayerAgentStats,
+    PlayerInfo, PlayerNewsItem, PlayerTeam, Social,
 };
-use crate::vlr_scraper::{self, infer_platform, normalize_img_url, select_text};
-
-const MATCH_DATE_FORMAT: &str = "%Y/%m/%d";
-const MATCH_TIME_FORMAT: &str = "%I:%M %p";
+use crate::vlr_scraper::{self, infer_platform, match_item, normalize_img_url, select_text};
 
 #[instrument(skip(client))]
 pub(crate) async fn get_player_matchlist(
     client: &reqwest::Client,
     player_id: u32,
     page: u8,
-) -> Result<PlayerMatchList> {
+) -> Result<Vec<MatchItem>> {
     let url = format!("https://www.vlr.gg/player/matches/{player_id}/?page={page}");
     let document = vlr_scraper::get_document(client, &url).await?;
-    let matches = parse_matchlist(&document)?;
+    let matches = match_item::parse_match_items(&document)?;
     debug!(
         count = matches.len(),
         player_id, page, "parsed player match list"
     );
     Ok(matches)
-}
-
-fn parse_matchlist(document: &scraper::Html) -> Result<PlayerMatchList> {
-    let match_item_selector = "div#wrapper div.col a.m-item";
-    let selector = Selector::parse(match_item_selector)?;
-    document
-        .select(&selector)
-        .map(parse_match_item)
-        .collect::<Result<_>>()
-}
-
-fn parse_match_item(element: ElementRef) -> Result<PlayerMatchListItem> {
-    let href = element.value().attr("href");
-    let (id, slug) = href
-        .and_then(|href| {
-            href.strip_prefix("/")
-                .unwrap_or_default()
-                .split('/')
-                .collect_tuple()
-        })
-        .map(|(id, slug)| (id.parse().unwrap_or_default(), slug.to_string()))
-        .ok_or(VlrError::ElementNotFound {
-            context: "player match item href",
-        })?;
-
-    let league_icon_selector = Selector::parse("div.m-item-thumb img")?;
-    let league_icon = element
-        .select(&league_icon_selector)
-        .next()
-        .and_then(|e| e.value().attr("src"))
-        .map(normalize_img_url)
-        .unwrap_or_default();
-
-    let league_name_selector = Selector::parse("div.m-item-event div")?;
-    let league_name = select_text(&element, &league_name_selector);
-
-    let league_series_selector = Selector::parse("div.m-item-event")?;
-    let league_series_name = element
-        .select(&league_series_selector)
-        .filter_map(|t| t.text().last())
-        .map(|t| t.trim().to_string())
-        .last()
-        .unwrap_or_default()
-        .replace(['\n', '\t'], "");
-
-    let teams_selector = Selector::parse("div.m-item-team")?;
-    let logos_selector = Selector::parse("div.m-item-logo img")?;
-    let scores_selector = Selector::parse("div.m-item-result span")?;
-    let teams = izip!(
-        element.select(&teams_selector),
-        element.select(&logos_selector),
-        element.select(&scores_selector)
-    )
-    .map(|(team, logo, score)| parse_team(team, logo, score))
-    .collect::<Result<_>>()?;
-
-    let vods_selector = Selector::parse("div.m-item-vods div.wf-tag span.full")?;
-    let vods = element
-        .select(&vods_selector)
-        .filter_map(|t| t.text().last())
-        .map(|t| t.trim().to_string())
-        .collect_vec();
-
-    let date_selector = Selector::parse("div.m-item-date div")?;
-    let date = select_text(&element, &date_selector);
-    let date = NaiveDate::parse_from_str(&date, MATCH_DATE_FORMAT).ok();
-
-    let time_selector = Selector::parse("div.m-item-date")?;
-    let time = element
-        .select(&time_selector)
-        .filter_map(|t| t.text().last())
-        .map(|t| t.trim().to_string())
-        .last()
-        .unwrap_or_default()
-        .replace(['\n', '\t'], "");
-    let time = NaiveTime::parse_from_str(&time, MATCH_TIME_FORMAT).ok();
-
-    Ok(PlayerMatchListItem {
-        id,
-        slug,
-        league_icon,
-        league_name,
-        league_series_name,
-        teams,
-        vods,
-        match_start: date.and_then(|d| time.map(|t| d.and_time(t))),
-    })
-}
-
-fn parse_team(
-    team_element: ElementRef,
-    logo_element: ElementRef,
-    score_element: ElementRef,
-) -> Result<PlayerMatchListTeam> {
-    let name_selector = Selector::parse("span.m-item-team-name")?;
-    let name = select_text(&team_element, &name_selector);
-
-    let tag_selector = Selector::parse("span.m-item-team-tag")?;
-    let tag = select_text(&team_element, &tag_selector);
-
-    let logo_url = logo_element
-        .value()
-        .attr("src")
-        .map(normalize_img_url)
-        .unwrap_or_default();
-
-    let score = score_element
-        .text()
-        .last()
-        .map(|s| s.trim())
-        .unwrap_or_default()
-        .parse()
-        .ok();
-
-    Ok(PlayerMatchListTeam {
-        name,
-        tag,
-        logo_url,
-        score,
-    })
 }
 
 /// Fetch a complete player profile: basic info, teams, agent stats, news, and event placements.
@@ -708,7 +584,11 @@ pub(crate) fn parse_event_placements(
                                 team_name
                             };
                             let team_name = team_name.trim().to_string();
-                            let team_name = if team_name.is_empty() { None } else { Some(team_name) };
+                            let team_name = if team_name.is_empty() {
+                                None
+                            } else {
+                                Some(team_name)
+                            };
 
                             Some(PlacementEntry {
                                 stage,
@@ -864,7 +744,7 @@ mod tests {
                 .unwrap();
         let event_id = events.events[0].id;
 
-        let matches = crate::vlr_scraper::matchlist::get_matchlist(&client, event_id)
+        let matches = crate::vlr_scraper::event_matchlist::get_event_matchlist(&client, event_id)
             .await
             .unwrap();
         let match_id = matches[0].id;

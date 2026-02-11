@@ -1,32 +1,16 @@
-use chrono::NaiveDateTime;
 use serde::Serialize;
 
 use super::common::{EventPlacement, Social};
+use super::match_item::{MatchItem, MatchItemList, MatchItemTeam};
 
-/// A list of matches a player has participated in.
-pub type PlayerMatchList = Vec<PlayerMatchListItem>;
+/// Backward-compatible alias for [`MatchItemList`].
+pub type PlayerMatchList = MatchItemList;
 
-/// A single match entry in a player's match history.
-#[derive(Debug, Clone, Serialize)]
-pub struct PlayerMatchListItem {
-    pub id: u32,
-    pub slug: String,
-    pub league_icon: String,
-    pub league_name: String,
-    pub league_series_name: String,
-    pub teams: Vec<PlayerMatchListTeam>,
-    pub vods: Vec<String>,
-    pub match_start: Option<NaiveDateTime>,
-}
+/// Backward-compatible alias for [`MatchItem`].
+pub type PlayerMatchListItem = MatchItem;
 
-/// Team information as shown in a player's match history.
-#[derive(Debug, Clone, Serialize)]
-pub struct PlayerMatchListTeam {
-    pub name: String,
-    pub tag: String,
-    pub logo_url: String,
-    pub score: Option<u8>,
-}
+/// Backward-compatible alias for [`MatchItemTeam`].
+pub type PlayerMatchListTeam = MatchItemTeam;
 
 /// Complete player profile data from a player overview page.
 #[derive(Debug, Clone, Serialize)]
