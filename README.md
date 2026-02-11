@@ -5,9 +5,10 @@ A Rust library for scraping Valorant esports data from [vlr.gg](https://www.vlr.
 ## Features
 
 - **Events** -- browse upcoming and completed tournaments, filtered by region
-- **Match lists** -- get all matches for a given event
+- **Event match lists** -- get all matches for a given event
 - **Match details** -- full per-game stats including maps, rounds, players, and agents
-- **Player history** -- paginated match history for any player
+- **Players** -- full profiles (info, teams, agent stats, news, event placements) and paginated match history
+- **Teams** -- full profiles (info, roster, event placements), paginated match history, and roster transaction history
 - **Structured errors** -- every error carries context (URL, element, parse detail)
 - **Tracing** -- all operations are instrumented with [`tracing`](https://docs.rs/tracing) spans
 
@@ -41,7 +42,7 @@ async fn main() -> vlr_scraper::Result<()> {
     println!("Found {} events", events.events.len());
 
     // Fetch matches for the first event
-    let matches = client.get_matchlist(events.events[0].id).await?;
+    let matches = client.get_event_matchlist(events.events[0].id).await?;
     println!("Found {} matches", matches.len());
 
     // Get detailed stats for a match
@@ -62,9 +63,13 @@ All functionality is accessed through [`VlrClient`](src/client.rs):
 | Method | Description |
 |---|---|
 | `get_events(event_type, region, page)` | Paginated list of events |
-| `get_matchlist(event_id)` | All matches for an event |
+| `get_event_matchlist(event_id)` | All matches for an event |
 | `get_match(match_id)` | Full match detail (header, games, rounds, players) |
+| `get_player(player_id, timespan)` | Full player profile (info, teams, agent stats, news, placements) |
 | `get_player_matchlist(player_id, page)` | Paginated match history for a player |
+| `get_team(team_id)` | Full team profile (info, roster, placements, winnings) |
+| `get_team_matchlist(team_id, page)` | Paginated match history for a team |
+| `get_team_transactions(team_id)` | Roster transaction history for a team |
 
 ### Custom HTTP client
 
@@ -108,20 +113,32 @@ tracing_subscriber::fmt::init();
 
 ```
 src/
-├── lib.rs               # Public API surface and re-exports
-├── client.rs            # VlrClient entry point
-├── error.rs             # VlrError and Result type alias
-├── model/               # Public data types (pure structs, no logic)
-│   ├── event.rs         # Event, EventsData, EventType, EventStatus, Region
-│   ├── matchlist.rs     # MatchListItem, MatchListTeam
-│   ├── match_detail.rs  # Match, MatchHeader, MatchGame, player/round types
-│   └── player.rs        # PlayerMatchListItem, PlayerMatchListTeam
-└── scraper/             # Private HTML parsing (not part of public API)
-    ├── mod.rs           # Shared utilities (HTTP fetch, text extraction)
-    ├── events.rs        # Event page parser
-    ├── matchlist.rs     # Match list parser
-    ├── match_detail.rs  # Match detail parser
-    └── player.rs        # Player match history parser
+├── lib.rs                  # Public API surface and re-exports
+├── client.rs               # VlrClient entry point
+├── error.rs                # VlrError and Result type alias
+├── model/                  # Public data types (pure structs, no logic)
+│   ├── common.rs           # Shared types (Social, EventPlacement, PlacementEntry)
+│   ├── event.rs            # Event, EventsData, EventType, EventStatus, Region
+│   ├── event_matchlist.rs  # EventMatchListItem, EventMatchListTeam
+│   ├── match_detail.rs     # Match, MatchHeader, MatchGame, player/round types
+│   ├── match_item.rs       # MatchItem, MatchItemTeam (shared match list item)
+│   ├── player.rs           # Player, PlayerInfo, PlayerAgentStats, PlayerTeam, ...
+│   └── team.rs             # Team, TeamInfo, TeamRosterMember, TeamTransaction
+└── vlr_scraper/            # Private HTML parsing (not part of public API)
+    ├── mod.rs              # Shared utilities (HTTP fetch, text extraction, URL helpers)
+    ├── events/
+    │   ├── list.rs         # Event listing parser
+    │   └── matchlist.rs    # Event match list parser
+    ├── matches/
+    │   ├── mod.rs          # Shared match item parsing (used by player/team matchlists)
+    │   └── detail.rs       # Full match detail parser
+    ├── players/
+    │   ├── info.rs         # Player profile parser (info, teams, stats, news, placements)
+    │   └── matchlist.rs    # Player match history parser
+    └── teams/
+        ├── info.rs         # Team profile parser (info, roster, placements)
+        ├── matchlist.rs    # Team match history parser
+        └── transactions.rs # Team roster transaction parser
 ```
 
 ## License
