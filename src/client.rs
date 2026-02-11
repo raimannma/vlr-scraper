@@ -13,10 +13,12 @@ use crate::scraper;
 ///
 /// ```no_run
 /// # async fn example() -> vlr_scraper::Result<()> {
-/// use vlr_scraper::{VlrClient, EventType, Region};
+/// use vlr_scraper::{EventType, Region, VlrClient};
 ///
 /// let client = VlrClient::new();
-/// let events = client.get_events(EventType::Upcoming, Region::All, 1).await?;
+/// let events = client
+///     .get_events(EventType::Upcoming, Region::All, 1)
+///     .await?;
 /// println!("Found {} events", events.events.len());
 /// # Ok(())
 /// # }
@@ -65,12 +67,14 @@ impl VlrClient {
 
     /// Fetch a paginated list of matches a player has participated in.
     #[instrument(skip(self))]
-    pub async fn get_player_matchlist(
-        &self,
-        player_id: u32,
-        page: u8,
-    ) -> Result<PlayerMatchList> {
+    pub async fn get_player_matchlist(&self, player_id: u32, page: u8) -> Result<PlayerMatchList> {
         scraper::player::get_player_matchlist(&self.http, player_id, page).await
+    }
+
+    /// Fetch a complete player profile including info, teams, agent stats, news, and event placements.
+    #[instrument(skip(self))]
+    pub async fn get_player(&self, player_id: u32, timespan: AgentStatsTimespan) -> Result<Player> {
+        scraper::player::get_player(&self.http, player_id, timespan).await
     }
 }
 

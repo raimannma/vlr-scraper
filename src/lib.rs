@@ -6,12 +6,14 @@
 //!
 //! ```no_run
 //! # async fn example() -> vlr_scraper::Result<()> {
-//! use vlr_scraper::{VlrClient, EventType, Region};
+//! use vlr_scraper::{EventType, Region, VlrClient};
 //!
 //! let client = VlrClient::new();
 //!
 //! // Fetch upcoming events
-//! let events = client.get_events(EventType::Upcoming, Region::All, 1).await?;
+//! let events = client
+//!     .get_events(EventType::Upcoming, Region::All, 1)
+//!     .await?;
 //!
 //! // Fetch matches for the first event
 //! let matches = client.get_matchlist(events.events[0].id).await?;
@@ -29,9 +31,7 @@ mod scraper;
 
 // Re-export the client as the primary public API.
 pub use client::VlrClient;
-
 // Re-export error types at the crate root for convenience.
 pub use error::{Result, VlrError};
-
 // Re-export all model types at the crate root for convenience.
 pub use model::*;

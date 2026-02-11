@@ -1,12 +1,12 @@
+use ::scraper::{CaseSensitivity, ElementRef, Selector};
 use chrono::NaiveDateTime;
 use itertools::Itertools;
-use ::scraper::{CaseSensitivity, ElementRef, Selector};
 use tracing::{debug, instrument};
 
 use crate::error::{Result, VlrError};
 use crate::model::{
-    Match, MatchGame, MatchGamePlayer, MatchGameRound, MatchGameTeam, MatchHeader,
-    MatchHeaderTeam, MatchStream,
+    Match, MatchGame, MatchGamePlayer, MatchGameRound, MatchGameTeam, MatchHeader, MatchHeaderTeam,
+    MatchStream,
 };
 use crate::scraper::{self, normalize_img_url, select_text};
 
@@ -209,10 +209,7 @@ fn parse_header(header: &ElementRef) -> Result<MatchHeader> {
     })
 }
 
-fn parse_games(
-    header: &MatchHeader,
-    games: &[ElementRef],
-) -> Result<Vec<MatchGame>> {
+fn parse_games(header: &MatchHeader, games: &[ElementRef]) -> Result<Vec<MatchGame>> {
     games.iter().map(|g| parse_game(header, g)).collect()
 }
 
@@ -252,12 +249,13 @@ fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame> {
 
 fn parse_player(player: ElementRef) -> Result<MatchGamePlayer> {
     let name_column_selector = Selector::parse("td.mod-player")?;
-    let name_column = player
-        .select(&name_column_selector)
-        .next()
-        .ok_or(VlrError::ElementNotFound {
-            context: "player name column (td.mod-player)",
-        })?;
+    let name_column =
+        player
+            .select(&name_column_selector)
+            .next()
+            .ok_or(VlrError::ElementNotFound {
+                context: "player name column (td.mod-player)",
+            })?;
     let nation_selector = Selector::parse("i.flag")?;
     let nation = name_column
         .select(&nation_selector)
@@ -300,10 +298,7 @@ fn parse_player(player: ElementRef) -> Result<MatchGamePlayer> {
     })
 }
 
-fn parse_rounds(
-    header: &MatchHeader,
-    rounds: Vec<ElementRef>,
-) -> Result<Vec<MatchGameRound>> {
+fn parse_rounds(header: &MatchHeader, rounds: Vec<ElementRef>) -> Result<Vec<MatchGameRound>> {
     let round_number_selector = Selector::parse("div.rnd-num")?;
     let round_result_selector = Selector::parse("div.rnd-sq")?;
     let rounds: Vec<MatchGameRound> = rounds
@@ -377,9 +372,8 @@ fn parse_game_team(team: ElementRef, players: Vec<MatchGamePlayer>) -> MatchGame
 
 #[cfg(test)]
 mod tests {
-    use crate::model::{EventType, Region};
-
     use super::*;
+    use crate::model::{EventType, Region};
 
     #[tokio::test]
     async fn test_get_match() {

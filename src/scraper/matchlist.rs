@@ -1,6 +1,6 @@
+use ::scraper::{CaseSensitivity, ElementRef, Selector};
 use chrono::{NaiveDate, NaiveTime};
 use itertools::Itertools;
-use ::scraper::{CaseSensitivity, ElementRef, Selector};
 use tracing::{debug, instrument, warn};
 
 use crate::error::Result;
@@ -12,10 +12,7 @@ const MATCH_DATE_FORMAT_ALT: &str = "%a, %b %e, %Y";
 const MATCH_TIME_FORMAT: &str = "%I:%M %p";
 
 #[instrument(skip(client))]
-pub(crate) async fn get_matchlist(
-    client: &reqwest::Client,
-    event_id: u32,
-) -> Result<MatchList> {
+pub(crate) async fn get_matchlist(client: &reqwest::Client, event_id: u32) -> Result<MatchList> {
     let url = format!("https://www.vlr.gg/event/matches/{event_id}");
     let document = scraper::get_document(client, &url).await?;
     let matches = parse_matches(&document)?;
@@ -51,10 +48,7 @@ fn parse_matches(document: &scraper::Html) -> Result<MatchList> {
     Ok(matches)
 }
 
-fn parse_match_item(
-    element: &ElementRef,
-    date: Option<NaiveDate>,
-) -> Result<MatchListItem> {
+fn parse_match_item(element: &ElementRef, date: Option<NaiveDate>) -> Result<MatchListItem> {
     let href = element.value().attr("href").unwrap_or_default().to_string();
     let (id, slug) = href
         .strip_prefix("/")
@@ -127,9 +121,8 @@ fn parse_team(team: &ElementRef) -> Result<MatchListTeam> {
 
 #[cfg(test)]
 mod tests {
-    use crate::model::{EventType, Region};
-
     use super::*;
+    use crate::model::{EventType, Region};
 
     #[tokio::test]
     async fn test_get_matches() {

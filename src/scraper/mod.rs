@@ -7,7 +7,7 @@ pub(crate) use ::scraper::Html;
 use ::scraper::{ElementRef, Selector};
 use tracing::debug;
 
-use crate::error::{VlrError, Result};
+use crate::error::{Result, VlrError};
 
 const BASE_URL: &str = "https://www.vlr.gg";
 
@@ -15,14 +15,10 @@ const BASE_URL: &str = "https://www.vlr.gg";
 pub(crate) async fn get_document(client: &reqwest::Client, url: &str) -> Result<Html> {
     debug!(url, "fetching page");
 
-    let response = client
-        .get(url)
-        .send()
-        .await
-        .map_err(|e| VlrError::Http {
-            url: url.to_owned(),
-            source: e,
-        })?;
+    let response = client.get(url).send().await.map_err(|e| VlrError::Http {
+        url: url.to_owned(),
+        source: e,
+    })?;
 
     let status = response.status();
     if !status.is_success() {
@@ -49,8 +45,7 @@ pub(crate) fn select_text(element: &ElementRef, selector: &Selector) -> String {
         .and_then(|d| d.text().map(|t| t.trim()).find(|t| !t.is_empty()))
         .unwrap_or_default()
         .trim()
-        .replace('\n', "")
-        .replace('\t', "")
+        .replace(['\n', '\t'], "")
         .to_string()
 }
 

@@ -1,15 +1,13 @@
-use ::scraper::error::SelectorErrorKind;
 use std::num::ParseIntError;
+
+use ::scraper::error::SelectorErrorKind;
 
 /// All errors that can occur during VLR scraping operations.
 #[derive(thiserror::Error, Debug)]
 pub enum VlrError {
     /// HTTP request failed (network, DNS, TLS, timeout, etc.).
     #[error("http request failed for {url}: {source}")]
-    Http {
-        url: String,
-        source: reqwest::Error,
-    },
+    Http { url: String, source: reqwest::Error },
 
     /// Server returned a non-success HTTP status code.
     #[error("unexpected status {status} for {url}")]
@@ -20,10 +18,7 @@ pub enum VlrError {
 
     /// Failed to read the response body as text.
     #[error("failed to read response body from {url}: {source}")]
-    ResponseBody {
-        url: String,
-        source: reqwest::Error,
-    },
+    ResponseBody { url: String, source: reqwest::Error },
 
     /// A CSS selector string could not be parsed.
     #[error("invalid CSS selector: {0}")]

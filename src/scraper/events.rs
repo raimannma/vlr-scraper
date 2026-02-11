@@ -1,11 +1,12 @@
-use itertools::Itertools;
-use ::scraper::{ElementRef, Selector};
 use std::str::FromStr;
+
+use ::scraper::{ElementRef, Selector};
+use itertools::Itertools;
 use tracing::{debug, instrument};
 
 use crate::error::{Result, VlrError};
 use crate::model::{Event, EventStatus, EventType, EventsData, Region};
-use crate::scraper::{self, select_text, normalize_img_url};
+use crate::scraper::{self, normalize_img_url, select_text};
 
 #[instrument(skip(client), fields(region = %region, page))]
 pub(crate) async fn get_events(
@@ -109,9 +110,9 @@ fn parse_event(element: ElementRef) -> Result<Event> {
         .to_string();
 
     Ok(Event {
-        id: id.parse().map_err(|e: std::num::ParseIntError| {
-            VlrError::IntParse(e)
-        })?,
+        id: id
+            .parse()
+            .map_err(|e: std::num::ParseIntError| VlrError::IntParse(e))?,
         title,
         slug,
         region,
