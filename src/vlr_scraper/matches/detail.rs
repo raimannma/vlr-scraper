@@ -1011,4 +1011,18 @@ mod tests {
         let has_map_pick = vlr_match.games.iter().any(|g| g.picked_by.is_some());
         assert!(has_map_pick, "at least one game should have picked_by set");
     }
+
+    // Compile-time assertion that get_match future is Send
+    // This ensures the function can be used in axum handlers
+    #[allow(dead_code)]
+    fn assert_get_match_is_send() {
+        fn is_send<T: Send>() {}
+        is_send::<std::pin::Pin<Box<dyn std::future::Future<Output = Result<Match>> + Send>>>();
+        
+        // Verify that the actual future returned by get_match is Send
+        fn check_get_match_send(client: &reqwest::Client, id: u32) {
+            fn is_send<T: Send>(_: T) {}
+            is_send(get_match(client, id));
+        }
+    }
 }
