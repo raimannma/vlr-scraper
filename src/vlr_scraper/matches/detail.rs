@@ -14,15 +14,17 @@ use crate::vlr_scraper::{self, normalize_img_url, select_text};
 #[instrument(skip(client))]
 pub(crate) async fn get_match(client: &reqwest::Client, id: u32) -> Result<Match> {
     let url = format!("https://www.vlr.gg/{id}");
-    let document = vlr_scraper::get_document(client, &url).await?;
-    let column_selector = Selector::parse("div.col.mod-3")?;
-    let column = document
-        .select(&column_selector)
-        .next()
-        .ok_or(VlrError::ElementNotFound {
-            context: "match page column (div.col.mod-3)",
-        })?;
-    let mut result = parse_match(id, &column)?;
+    let mut result: Match = {
+        let document = vlr_scraper::get_document(client, &url).await?;
+        let column_selector = Selector::parse("div.col.mod-3")?;
+        let column = document
+            .select(&column_selector)
+            .next()
+            .ok_or(VlrError::ElementNotFound {
+                context: "match page column (div.col.mod-3)",
+            })?;
+        parse_match(id, &column)?
+    };
 
     // Fetch performance and economy tabs concurrently
     let perf_url = format!("https://www.vlr.gg/{id}/?tab=performance");
