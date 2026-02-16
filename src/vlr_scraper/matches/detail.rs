@@ -1016,10 +1016,6 @@ mod tests {
     // This ensures the function can be used in axum handlers
     #[allow(dead_code)]
     fn assert_get_match_is_send() {
-        fn is_send<T: Send>() {}
-        is_send::<std::pin::Pin<Box<dyn std::future::Future<Output = Result<Match>> + Send>>>();
-        
-        // Verify that the actual future returned by get_match is Send
         fn check_get_match_send(client: &reqwest::Client, id: u32) {
             fn is_send<T: Send>(_: T) {}
             is_send(get_match(client, id));
