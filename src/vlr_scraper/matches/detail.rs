@@ -14,7 +14,7 @@ use crate::vlr_scraper::{self, normalize_img_url, select_text};
 #[instrument(skip(client))]
 pub(crate) async fn get_match(client: &reqwest::Client, id: u32) -> Result<Match> {
     let url = format!("https://www.vlr.gg/{id}");
-    let mut result: Match = {
+    let mut result = {
         let document = vlr_scraper::get_document(client, &url).await?;
         let column_selector = Selector::parse("div.col.mod-3")?;
         let column = document
@@ -23,39 +23,40 @@ pub(crate) async fn get_match(client: &reqwest::Client, id: u32) -> Result<Match
             .ok_or(VlrError::ElementNotFound {
                 context: "match page column (div.col.mod-3)",
             })?;
-        parse_match(id, &column)?
-    };
+        let mut result = parse_match(id, &column)?;
 
-    // Fetch performance and economy tabs concurrently
-    let perf_url = format!("https://www.vlr.gg/{id}/?tab=performance");
-    let econ_url = format!("https://www.vlr.gg/{id}/?tab=economy");
-    let (perf_result, econ_result) = futures::join!(
-        vlr_scraper::get_document(client, &perf_url),
-        vlr_scraper::get_document(client, &econ_url),
-    );
+        // Fetch performance and economy tabs concurrently
+        let perf_url = format!("https://www.vlr.gg/{id}/?tab=performance");
+        let econ_url = format!("https://www.vlr.gg/{id}/?tab=economy");
+        let (perf_result, econ_result) = futures::join!(
+            vlr_scraper::get_document(client, &perf_url),
+            vlr_scraper::get_document(client, &econ_url),
+        );
 
-    let col_selector = Selector::parse("div.col.mod-3").unwrap_or_else(|_| unreachable!());
+        let col_selector = Selector::parse("div.col.mod-3").unwrap_or_else(|_| unreachable!());
 
-    result.performance = match perf_result {
-        Ok(perf_doc) => perf_doc
-            .select(&col_selector)
-            .next()
-            .and_then(|col| parse_performance(&col, &result).ok()),
-        Err(e) => {
-            debug!(id, error = %e, "failed to fetch performance tab");
-            None
-        }
-    };
+        result.performance = match perf_result {
+            Ok(perf_doc) => perf_doc
+                .select(&col_selector)
+                .next()
+                .and_then(|col| parse_performance(&col, &result).ok()),
+            Err(e) => {
+                debug!(id, error = %e, "failed to fetch performance tab");
+                None
+            }
+        };
 
-    result.economy = match econ_result {
-        Ok(econ_doc) => econ_doc
-            .select(&col_selector)
-            .next()
-            .and_then(|col| parse_economy(&col).ok()),
-        Err(e) => {
-            debug!(id, error = %e, "failed to fetch economy tab");
-            None
-        }
+        result.economy = match econ_result {
+            Ok(econ_doc) => econ_doc
+                .select(&col_selector)
+                .next()
+                .and_then(|col| parse_economy(&col).ok()),
+            Err(e) => {
+                debug!(id, error = %e, "failed to fetch economy tab");
+                None
+            }
+        };
+        result
     };
 
     debug!(id, games = result.games.len(), "parsed match detail");
