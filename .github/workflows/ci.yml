@@ -89,7 +89,7 @@ jobs:
           rustup update stable
       - uses: Swatinem/rust-cache@v2
       - name: Machete
-        uses: bnjbvr/cargo-machete@7959c845782fed02ee69303126d4a12d64f1db18
+        uses: bnjbvr/cargo-machete@ac30a525c0a8d163a92d727b3ff079ee3f6ecb08
 
   minimal-versions:
     name: Minimal Versions
@@ -167,9 +167,9 @@ jobs:
       - name: Add redirect
         run: echo '<meta http-equiv="refresh" content="0;url=vlr_scraper/index.html">' > target/doc/index.html
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: target/doc
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
