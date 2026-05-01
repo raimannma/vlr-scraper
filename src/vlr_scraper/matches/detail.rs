@@ -739,25 +739,21 @@ fn parse_game(header: &MatchHeader, game: &ElementRef) -> Result<MatchGame> {
     let rounds = game.select(&rounds_selector).collect_vec();
     let rounds = parse_rounds(header, rounds)?;
 
-    let players1_selector = Selector::parse(
-        "div.vm-stats-container div div:first-child table tbody tr:has(td.mod-player)",
-    )?;
-    let players2_selector = Selector::parse(
-        "div.vm-stats-container div div:last-child table tbody tr:has(td.mod-player)",
-    )?;
-    let players1 = game
-        .select(&players1_selector)
-        .map(parse_player)
-        .collect::<Result<_>>()?;
-    let players2 = game
-        .select(&players2_selector)
-        .map(parse_player)
+    let overview_table_selector = Selector::parse("table.wf-table-inset.mod-overview")?;
+    let player_row_selector = Selector::parse("tbody tr:has(td.mod-player)")?;
+    let team_player_lists: Vec<Vec<MatchGamePlayer>> = game
+        .select(&overview_table_selector)
+        .map(|t| {
+            t.select(&player_row_selector)
+                .map(parse_player)
+                .collect::<Result<_>>()
+        })
         .collect::<Result<_>>()?;
 
     let team_name_selectors = Selector::parse("div.vm-stats-game-header div.team")?;
     let teams: Vec<MatchGameTeam> = game
         .select(&team_name_selectors)
-        .zip(vec![players1, players2])
+        .zip(team_player_lists)
         .map(|(t, p)| parse_game_team(t, p))
         .collect();
     Ok(MatchGame {
